@@ -7,11 +7,13 @@
 
 #include "media/MfMediaEngine.h"
 
-#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP)
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP || defined(ANME_USE_IMFME))
 
 #    include "ntcvt/ntcvt.hpp"
 
 #    include "MFUtils.h"
+
+#    include "yasio/stl/string_view.hpp"
 
 NS_AX_BEGIN
 
@@ -107,6 +109,8 @@ bool MfMediaEngine::Initialize()
     DX::ThrowIfFailed(attributes->SetUnknown(MF_MEDIA_ENGINE_CALLBACK, reinterpret_cast<IUnknown*>(spNotify.Get())));
     DX::ThrowIfFailed(
         attributes->SetUINT32(MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, DXGI_FORMAT::DXGI_FORMAT_B8G8R8X8_UNORM));
+
+    DX::ThrowIfFailed(attributes->SetUINT32(MF_MEDIA_ENGINE_STREAM_CONTAINS_ALPHA_CHANNEL, 1));
 
     // Create MediaEngine.
     ComPtr<IMFMediaEngineClassFactory> mfFactory;

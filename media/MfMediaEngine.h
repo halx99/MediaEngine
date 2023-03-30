@@ -9,7 +9,9 @@
 
 #if defined(_WIN32)
 #include <winapifamily.h>
-#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP)
+#include "media/MediaEngine.h"
+
+#    if defined(WINAPI_FAMILY) && (WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP || defined(ANME_USE_IMFME))
 
 #include <stdint.h>
 #include <mfapi.h>
@@ -17,8 +19,6 @@
 #include <mfmediaengine.h>
 #include <wincodec.h>
 #include <wrl/client.h>
-
-#include "media/MediaEngine.h"
 
 #include "media/MFUtils.h"
 

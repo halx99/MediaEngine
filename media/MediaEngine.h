@@ -16,6 +16,8 @@
         break
 #endif
 
+// #define ANME_USE_IMFME 1
+
 #if __has_include(<winapifamily.h>)
 #    include < winapifamily.h>
 #endif
@@ -81,7 +83,7 @@ enum class MEVideoSampleFormat
 {
     NONE,
     YUY2,
-    NV12,  // 'y420v' 'y420f'
+    NV12,  // '420v' '420f'
     RGB32,
     BGR32,
 };
