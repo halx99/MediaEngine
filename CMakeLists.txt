@@ -18,16 +18,15 @@ add_library(anme STATIC ${ANME_SRC})
 target_compile_definitions(anme PUBLIC ANME_NO_AXMOL=1)
 target_include_directories(anme PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
-# glad
-add_subdirectory(glad)
-
-# glfw
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(glfw)
-
 # examples
 if (ANME_BUILD_EXAMPLES)
+    # glad
+    add_subdirectory(glad)
+
+    # glfw
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+    add_subdirectory(glfw)
     add_executable(meplay main.cpp)
     target_link_libraries(meplay glfw glad anme)
 endif()
