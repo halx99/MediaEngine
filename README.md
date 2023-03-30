@@ -1,4 +1,4 @@
-# Anme - A Native Media Engine
+# Axme - The Axmol Media Engine
 
 A cross paltform media engine for video render based on native sdk
 
