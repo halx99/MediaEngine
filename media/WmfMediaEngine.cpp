@@ -1726,15 +1726,15 @@ HRESULT WmfMediaEngine::GetNativeVideoSize(DWORD* cx, DWORD* cy)
 
     } while (false);
 
-    if (hr == MF_E_ATTRIBUTENOTFOUND)
-    {
-        mfArea.Area.cx = m_frameExtent.x;
-        mfArea.Area.cy = m_frameExtent.y;
-    }
-    else
+    if (SUCCEEDED(hr))
     {
         *cx = mfArea.Area.cx;
         *cy = mfArea.Area.cy;
+    }
+    else // fallback to frame extent
+    {
+        *cx = m_frameExtent.x;
+        *cy = m_frameExtent.y;
     }
     return hr;
 }
