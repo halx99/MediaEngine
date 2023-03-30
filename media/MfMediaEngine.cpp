@@ -108,7 +108,7 @@ bool MfMediaEngine::Initialize()
     // reinterpret_cast<IUnknown*>(dxgiManager.Get())));
     DX::ThrowIfFailed(attributes->SetUnknown(MF_MEDIA_ENGINE_CALLBACK, reinterpret_cast<IUnknown*>(spNotify.Get())));
     DX::ThrowIfFailed(
-        attributes->SetUINT32(MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, DXGI_FORMAT::DXGI_FORMAT_B8G8R8X8_UNORM));
+        attributes->SetUINT32(MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, DXGI_FORMAT::DXGI_FORMAT_B8G8R8A8_UNORM));
 
     DX::ThrowIfFailed(attributes->SetUINT32(MF_MEDIA_ENGINE_STREAM_CONTAINS_ALPHA_CHANNEL, 1));
 
