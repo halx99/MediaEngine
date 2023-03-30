@@ -482,8 +482,8 @@ bool WmfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
         switch (m_videoSampleFormat)
         {
         case MEVideoSampleFormat::YUY2:
-            sample._bufferDim.x = m_bIsH264 ? YASIO_SZ_ALIGN(m_videoExtent.x, 16) : m_videoExtent.x;
-            sample._bufferDim.y = m_videoExtent.y;
+            sample._bufferDim.x = m_bIsH264 ? YASIO_SZ_ALIGN(m_frameExtent.x, 16) : m_frameExtent.x;
+            sample._bufferDim.y = m_frameExtent.y;
             sample._stride      = sample._bufferDim.x * 2;
             break;
         case MEVideoSampleFormat::NV12:
@@ -692,6 +692,11 @@ HRESULT WmfMediaEngine::Shutdown()
 HRESULT WmfMediaEngine::OnTopologyReady(IMFMediaEvent* pEvent)
 {
     NME_TRACE("WmfMediaEngine::OnTopologyReady\n");
+
+    UINT32 w = 0, h = 0;
+    MFGetAttributeSize(m_videoInputType.Get(), MF_MT_FRAME_SIZE, &w, &h);
+    m_frameExtent.x = w;
+    m_frameExtent.y = h;
 
     DWORD cx = 0, cy = 0;
     GetNativeVideoSize(&cx, &cy);
@@ -1626,7 +1631,7 @@ HRESULT WmfMediaEngine::CreateOutputNode(IMFStreamDescriptor* pSourceSD, IMFTopo
         // Create the video renderer.
         NME_TRACE("Stream %d: video stream\n", streamID);
         // CHECK_HR(hr = MFCreateVideoRendererActivate(hwndVideo, &pRendererActivate));
-        auto Sampler = MFUtils::MakeComPtr<MFVideoSampler>(this);
+        auto Sampler                     = MFUtils::MakeComPtr<MFVideoSampler>(this);
         TComPtr<IMFMediaType>& InputType = m_videoInputType;
         CHECK_HR(hr = pHandler->GetCurrentMediaType(InputType.ReleaseAndGetAddressOf()));
 
@@ -1705,32 +1710,32 @@ HRESULT WmfMediaEngine::GetNativeVideoSize(DWORD* cx, DWORD* cy)
 
     MFVideoArea mfArea = {0};
 
-    BOOL bPanScan = MFGetAttributeUINT32(m_videoInputType.Get(), MF_MT_PAN_SCAN_ENABLED, FALSE);
-
-    if (bPanScan)
-        hr = m_videoInputType->GetBlob(MF_MT_PAN_SCAN_APERTURE, (UINT8*)&mfArea, sizeof(MFVideoArea), nullptr);
-
-    if (!bPanScan || hr == MF_E_ATTRIBUTENOTFOUND)
+    do
     {
-        hr = m_videoInputType->GetBlob(MF_MT_MINIMUM_DISPLAY_APERTURE, (UINT8*)&mfArea, sizeof(MFVideoArea), nullptr);
-
-        if (hr == MF_E_ATTRIBUTENOTFOUND)
-            hr = m_videoInputType->GetBlob(MF_MT_GEOMETRIC_APERTURE, (UINT8*)&mfArea, sizeof(MFVideoArea), nullptr);
-
-        if (hr == MF_E_ATTRIBUTENOTFOUND)
+        BOOL bPanScan = MFGetAttributeUINT32(m_videoInputType.Get(), MF_MT_PAN_SCAN_ENABLED, FALSE);
+        if (bPanScan)
         {
-            hr = MFGetAttributeSize(m_videoInputType.Get(), MF_MT_FRAME_SIZE, &width, &height);
-            if (SUCCEEDED(hr))
-            {
-                mfArea.Area.cx = width;
-                mfArea.Area.cy = height;
-            }
+            hr = m_videoInputType->GetBlob(MF_MT_PAN_SCAN_APERTURE, (UINT8*)&mfArea, sizeof(MFVideoArea), nullptr);
+            AX_BREAK_IF(SUCCEEDED(hr));
         }
+
+        hr = m_videoInputType->GetBlob(MF_MT_MINIMUM_DISPLAY_APERTURE, (UINT8*)&mfArea, sizeof(MFVideoArea), nullptr);
+        AX_BREAK_IF(SUCCEEDED(hr));
+
+        hr = m_videoInputType->GetBlob(MF_MT_GEOMETRIC_APERTURE, (UINT8*)&mfArea, sizeof(MFVideoArea), nullptr);
+
+    } while (false);
+
+    if (hr == MF_E_ATTRIBUTENOTFOUND)
+    {
+        mfArea.Area.cx = m_frameExtent.x;
+        mfArea.Area.cy = m_frameExtent.y;
     }
-
-    *cx = mfArea.Area.cx;
-    *cy = mfArea.Area.cy;
-
+    else
+    {
+        *cx = mfArea.Area.cx;
+        *cy = mfArea.Area.cy;
+    }
     return hr;
 }
 

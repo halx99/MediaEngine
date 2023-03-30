@@ -11,6 +11,9 @@
         namespace ax    \
         {
 #    define NS_AX_END }
+#    define AX_BREAK_IF(cond) \
+        if (cond)             \
+        break
 #endif
 
 #if __has_include(<winapifamily.h>)

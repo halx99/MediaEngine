@@ -252,6 +252,7 @@ protected:
     HANDLE m_hCloseEvent;                     // Event to wait on while closing
 
     MEIntPoint m_videoExtent;
+    MEIntPoint m_frameExtent; // may same with m_videoExtent
 
     BOOL m_bLooping  = FALSE;
     BOOL m_bAutoPlay = TRUE;
