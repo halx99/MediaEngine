@@ -14,7 +14,7 @@ endif()
 
 # the anme lib
 file(GLOB_RECURSE ANME_SRC ./media/*.h;./media/*.cpp;./media/*.mm)
-add_library(anme STATIC ${ANME_SRC})
+add_library(anme STATIC ${ANME_SRC} yasio/yasio.natvis)
 target_compile_definitions(anme PUBLIC ANME_NO_AXMOL=1)
 target_include_directories(anme PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
