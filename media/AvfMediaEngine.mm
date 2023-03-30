@@ -304,7 +304,7 @@ void AvfMediaEngine::onStatusNotification(void* context)
             {
             case kCVPixelFormatType_420YpCbCr8BiPlanarFullRange:
                 _bFullColorRange = true;
-            case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
                 _videoSampleFormat = MEVideoSampleFormat::NV12;
                 break;
             default:  // kCVPixelFormatType_32BGRA
