@@ -182,7 +182,7 @@ private:
 
 HRESULT WmfMediaEngine::CreateInstance(WmfMediaEngine** ppPlayer)
 {
-    NME_TRACE((L"WmfMediaEngine::Create\n"));
+    AXME_TRACE((L"WmfMediaEngine::Create\n"));
 
     if (ppPlayer == NULL)
     {
@@ -329,8 +329,8 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
     auto wsourceUri = ntcvt::from_chars(sourceUri);
 
     auto sURL = wsourceUri.c_str();
-    NME_TRACE("WmfMediaEngine::OpenURL\n");
-    NME_TRACE("URL = %s\n", sourceUri.data());
+    AXME_TRACE("WmfMediaEngine::OpenURL\n");
+    AXME_TRACE("URL = %s\n", sourceUri.data());
 
     // 1. Create a new media session.
     // 2. Create the media source.
@@ -468,67 +468,75 @@ done:
 
 void WmfMediaEngine::HandleVideoSample(const uint8_t* buf, size_t len)
 {
-    this->m_videoSampleDirty = true;
-    this->m_lastVideoFrame.assign(buf, buf + len, std::true_type{});
+    m_frames.enqueue(yasio::byte_buffer{buf, buf + len});
 }
 
-bool WmfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
+void WmfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
 {
-    if (this->m_videoSampleDirty)
-    {
-        this->m_videoSampleDirty = false;
-        sample._buffer.assign(this->m_lastVideoFrame);
-
-        switch (m_videoSampleFormat)
-        {
-        case MEVideoSampleFormat::YUY2:
-            sample._bufferDim.x = m_bIsH264 ? YASIO_SZ_ALIGN(m_frameExtent.x, 16) : m_frameExtent.x;
-            sample._bufferDim.y = m_frameExtent.y;
-            sample._stride      = sample._bufferDim.x * 2;
-            break;
-        case MEVideoSampleFormat::NV12:
-            // HEVC(H265) on Windows, both height width align 32
-            // refer to: https://community.intel.com/t5/Media-Intel-oneAPI-Video/32-byte-alignment-for-HEVC/m-p/1048275
-            sample._yuvDesc.YDim.x    = YASIO_SZ_ALIGN(m_videoExtent.x, 32);
-            sample._yuvDesc.YDim.y    = m_bIsHEVC ? YASIO_SZ_ALIGN(m_videoExtent.y, 32) : m_videoExtent.y;
-            sample._yuvDesc.UVDim.x   = sample._yuvDesc.YDim.x / 2;
-            sample._yuvDesc.UVDim.y   = sample._yuvDesc.YDim.y / 2;
-            sample._yuvDesc.YPitch    = sample._yuvDesc.YDim.x;
-            sample._yuvDesc.UVPitch   = sample._yuvDesc.YPitch;
-            sample._yuvDesc.YDataLen  = sample._yuvDesc.YPitch * sample._yuvDesc.YDim.y;
-            sample._yuvDesc.UVDataLen = sample._yuvDesc.UVPitch * sample._yuvDesc.UVDim.y;
-
-            sample._bufferDim.x = sample._yuvDesc.YDim.x;
-            sample._bufferDim.y = sample._yuvDesc.YDim.y * 3 / 2;
-            sample._stride      = sample._bufferDim.x;
-
-            assert(sample._bufferDim.x * sample._bufferDim.y == static_cast<int>(sample._buffer.size()));
-            assert((sample._yuvDesc.YDataLen + sample._yuvDesc.UVDataLen) == static_cast<int>(sample._buffer.size()));
-
-            break;
-        default:
-            assert(m_videoSampleFormat == MEVideoSampleFormat::RGB32 ||
-                   m_videoSampleFormat == MEVideoSampleFormat::BGR32);
-            sample._bufferDim = m_videoExtent;
-            sample._stride    = m_videoExtent.x * 4;
-        }
-
-        sample._mods = 0;
-        if (!sample._videoDim.equals(m_videoExtent))
-        {
-            sample._videoDim = m_videoExtent;
-            ++sample._mods;
-        }
-        if (sample._format != m_videoSampleFormat)
-        {
-            sample._format = m_videoSampleFormat;
-            ++sample._mods;
-        }
-        return true;
-    }
-
-    return false;
+    if (m_state != MEMediaState::Playing)
+        return;
+    yasio::byte_buffer buffer;
+    if (m_frames.try_dequeue(buffer))
+        callback(MEVideoFrame{buffer.data(), buffer.size(), MEVideoPixelDesc{m_videoPF, MEIntPoint{m_frameExtent.x, m_frameExtent.y}}, m_videoExtent});
 }
+
+//bool WmfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
+//{
+//    yasio::byte_buffer buffer;
+//    if (m_frames.try_dequeue(buffer))
+//    {
+//        sample._buffer = std::move(buffer);
+//        m_frames.pop();
+//
+//        switch (m_videoPF)
+//        {
+//        case MEVideoPixelFormat::YUY2:
+//            sample._bufferDim.x = m_bIsH264 ? YASIO_SZ_ALIGN(m_frameExtent.x, 16) : m_frameExtent.x;
+//            sample._bufferDim.y = m_frameExtent.y;
+//            sample._stride      = sample._bufferDim.x * 2;
+//            break;
+//        case MEVideoPixelFormat::NV12:
+//            // HEVC(H265) on Windows, both height width align 32
+//            // refer to: https://community.intel.com/t5/Media-Intel-oneAPI-Video/32-byte-alignment-for-HEVC/m-p/1048275
+//            sample._yuvDesc.YDim.x    = YASIO_SZ_ALIGN(m_videoExtent.x, 32);
+//            sample._yuvDesc.YDim.y    = m_bIsHEVC ? YASIO_SZ_ALIGN(m_videoExtent.y, 32) : m_videoExtent.y;
+//            sample._yuvDesc.UVDim.x   = sample._yuvDesc.YDim.x / 2;
+//            sample._yuvDesc.UVDim.y   = sample._yuvDesc.YDim.y / 2;
+//            sample._yuvDesc.YPitch    = sample._yuvDesc.YDim.x;
+//            sample._yuvDesc.UVPitch   = sample._yuvDesc.YPitch;
+//            sample._yuvDesc.YDataLen  = sample._yuvDesc.YPitch * sample._yuvDesc.YDim.y;
+//            sample._yuvDesc.UVDataLen = sample._yuvDesc.UVPitch * sample._yuvDesc.UVDim.y;
+//
+//            sample._bufferDim.x = sample._yuvDesc.YDim.x;
+//            sample._bufferDim.y = sample._yuvDesc.YDim.y * 3 / 2;
+//            sample._stride      = sample._bufferDim.x;
+//
+//            assert(sample._bufferDim.x * sample._bufferDim.y == static_cast<int>(sample._buffer.size()));
+//            assert((sample._yuvDesc.YDataLen + sample._yuvDesc.UVDataLen) == static_cast<int>(sample._buffer.size()));
+//
+//            break;
+//        default:
+//            assert(m_videoPF == MEVideoPixelFormat::RGB32 || m_videoPF == MEVideoPixelFormat::BGR32);
+//            sample._bufferDim = m_videoExtent;
+//            sample._stride    = m_videoExtent.x * 4;
+//        }
+//
+//        sample._mods = 0;
+//        if (!sample._videoDim.equals(m_videoExtent))
+//        {
+//            sample._videoDim = m_videoExtent;
+//            ++sample._mods;
+//        }
+//        if (sample._format != m_videoPF)
+//        {
+//            sample._format = m_videoPF;
+//            ++sample._mods;
+//        }
+//        return true;
+//    }
+//
+//    return false;
+//}
 
 //-------------------------------------------------------------------
 //  HandleEvent
@@ -569,7 +577,7 @@ HRESULT WmfMediaEngine::HandleEvent(IMFMediaEvent* pEvent)
     // not succeed, the status is a failure code.
     CHECK_HR(hr = pEvent->GetStatus(&hrStatus));
 
-    // NME_TRACE("Media event: %s\n", EventName(meType));
+    // AXME_TRACE("Media event: %s\n", EventName(meType));
 
     // Check if the async operation succeeded.
     if (SUCCEEDED(hrStatus))
@@ -651,7 +659,7 @@ done:
 
 HRESULT WmfMediaEngine::Shutdown()
 {
-    NME_TRACE("WmfMediaEngine::ShutDown\n");
+    AXME_TRACE("WmfMediaEngine::ShutDown\n");
 
     HRESULT hr = S_OK;
 
@@ -691,7 +699,7 @@ HRESULT WmfMediaEngine::Shutdown()
 
 HRESULT WmfMediaEngine::OnTopologyReady(IMFMediaEvent* pEvent)
 {
-    NME_TRACE("WmfMediaEngine::OnTopologyReady\n");
+    AXME_TRACE("WmfMediaEngine::OnTopologyReady\n");
 
     UINT32 w = 0, h = 0;
     MFGetAttributeSize(m_videoInputType.Get(), MF_MT_FRAME_SIZE, &w, &h);
@@ -715,7 +723,7 @@ bool WmfMediaEngine::Play()
 {
     HRESULT hr = S_OK;
 
-    NME_TRACE("WmfMediaEngine::Play\n");
+    AXME_TRACE("WmfMediaEngine::Play\n");
 
     if (m_state != MEMediaState::Paused && m_state != MEMediaState::Stopped)
         MF_E_INVALIDREQUEST;
@@ -1246,7 +1254,7 @@ done:
 
 HRESULT WmfMediaEngine::OnPlayEnded(IMFMediaEvent* pEvent)
 {
-    NME_TRACE("WmfMediaEngine::OnPlayEnded\n");
+    AXME_TRACE("WmfMediaEngine::OnPlayEnded\n");
 
     // The session puts itself into the stopped state autmoatically.
 
@@ -1330,7 +1338,7 @@ HRESULT WmfMediaEngine::OnSessionEnded(HRESULT hrStatus)
 
 HRESULT WmfMediaEngine::CreateSession()
 {
-    NME_TRACE("WmfMediaEngine::CreateSession\n");
+    AXME_TRACE("WmfMediaEngine::CreateSession\n");
 
     HRESULT hr = S_OK;
 
@@ -1398,7 +1406,7 @@ HRESULT WmfMediaEngine::CloseSession()
 
         if (dwWaitResult == WAIT_TIMEOUT)
         {
-            NME_TRACE("CloseSession timed out!\n");
+            AXME_TRACE("CloseSession timed out!\n");
         }
 
         // Now there will be no more events from this session.
@@ -1442,7 +1450,7 @@ done:
 
 HRESULT WmfMediaEngine::CreateMediaSource(const WCHAR* sURL)
 {
-    NME_TRACE("WmfMediaEngine::CreateMediaSource\n");
+    AXME_TRACE("WmfMediaEngine::CreateMediaSource\n");
 
     HRESULT hr                = S_OK;
     MF_OBJECT_TYPE ObjectType = MF_OBJECT_INVALID;
@@ -1489,7 +1497,7 @@ done:
 
 HRESULT WmfMediaEngine::CreateTopologyFromSource(IMFTopology** ppTopology)
 {
-    NME_TRACE("WmfMediaEngine::CreateTopologyFromSource\n");
+    AXME_TRACE("WmfMediaEngine::CreateTopologyFromSource\n");
 
     assert(m_pSession != NULL);
     assert(m_pSource != NULL);
@@ -1508,7 +1516,7 @@ HRESULT WmfMediaEngine::CreateTopologyFromSource(IMFTopology** ppTopology)
     // Get the number of streams in the media source.
     CHECK_HR(hr = m_PresentDescriptor->GetStreamDescriptorCount(&cSourceStreams));
 
-    NME_TRACE("Stream count: %d\n", cSourceStreams);
+    AXME_TRACE("Stream count: %d\n", cSourceStreams);
 
     // For each stream, create the topology nodes and add them to the topology.
     for (DWORD i = 0; i < cSourceStreams; ++i)
@@ -1549,7 +1557,7 @@ HRESULT WmfMediaEngine::AddBranchToPartialTopology(IMFTopology* pTopology,
                                                    IMFPresentationDescriptor* pSourcePD,
                                                    DWORD iStream)
 {
-    NME_TRACE("WmfMediaEngine::AddBranchToPartialTopology\n");
+    AXME_TRACE("WmfMediaEngine::AddBranchToPartialTopology\n");
 
     assert(pTopology != NULL);
 
@@ -1629,7 +1637,7 @@ HRESULT WmfMediaEngine::CreateOutputNode(IMFStreamDescriptor* pSourceSD, IMFTopo
     if (MFMediaType_Video == guidMajorType)
     {
         // Create the video renderer.
-        NME_TRACE("Stream %d: video stream\n", streamID);
+        AXME_TRACE("Stream %d: video stream\n", streamID);
         // CHECK_HR(hr = MFCreateVideoRendererActivate(hwndVideo, &pRendererActivate));
         auto Sampler                     = MFUtils::MakeComPtr<MFVideoSampler>(this);
         TComPtr<IMFMediaType>& InputType = m_videoInputType;
@@ -1668,23 +1676,23 @@ HRESULT WmfMediaEngine::CreateOutputNode(IMFStreamDescriptor* pSourceSD, IMFTopo
         m_VideoOutputFormat = VideoOutputFormat;
 
         if (m_VideoOutputFormat == MFVideoFormat_YUY2)
-            m_videoSampleFormat = MEVideoSampleFormat::YUY2;
+            m_videoPF = MEVideoPixelFormat::YUY2;
         else if (m_VideoOutputFormat == MFVideoFormat_NV12)
-            m_videoSampleFormat = MEVideoSampleFormat::NV12;
+            m_videoPF = MEVideoPixelFormat::NV12;
         else if (m_VideoOutputFormat == MFVideoFormat_RGB32)
-            m_videoSampleFormat = MEVideoSampleFormat::RGB32;
+            m_videoPF = MEVideoPixelFormat::RGB32;
         // To run as fast as possible, set this attribute (requires Windows 7):
         // CHECK_HR(hr = pRendererActivate->SetUINT32(MF_SAMPLEGRABBERSINK_IGNORE_CLOCK, TRUE));
     }
     else if (MFMediaType_Audio == guidMajorType)
     {
         // Create the audio renderer.
-        NME_TRACE("Stream %d: audio stream\n", streamID);
+        AXME_TRACE("Stream %d: audio stream\n", streamID);
         CHECK_HR(hr = MFCreateAudioRendererActivate(&pRendererActivate));
     }
     else
     {
-        NME_TRACE("Stream %d: Unknown format\n", streamID);
+        AXME_TRACE("Stream %d: Unknown format\n", streamID);
         CHECK_HR(hr = E_FAIL);
     }
 

@@ -184,7 +184,7 @@ bool AvfMediaEngine::Open(std::string_view sourceUri)
     // open media file
     if (nsMediaUrl == nil)
     {
-        NME_TRACE("Failed to open Media file: %s", sourceUri.data());
+        AXME_TRACE("Failed to open Media file: %s", sourceUri.data());
         return false;
     }
 
@@ -193,7 +193,7 @@ bool AvfMediaEngine::Open(std::string_view sourceUri)
 
     if (!_player)
     {
-        NME_TRACE("Failed to create instance of an AVPlayer: %s", sourceUri.data());
+        AXME_TRACE("Failed to create instance of an AVPlayer: %s", sourceUri.data());
         return false;
     }
 
@@ -211,7 +211,7 @@ bool AvfMediaEngine::Open(std::string_view sourceUri)
 
     if (_playerItem == nil)
     {
-        NME_TRACE("Failed to open player item with Url: %s", sourceUri.data());
+        AXME_TRACE("Failed to open player item with Url: %s", sourceUri.data());
         return false;
     }
 
@@ -237,7 +237,7 @@ bool AvfMediaEngine::Open(std::string_view sourceUri)
                                              NSString* errStr =
                                                  [[errDetail objectForKey:NSUnderlyingErrorKey] localizedDescription];
 
-                                             NME_TRACE("Load media asset failed, %s", errStr.UTF8String);
+                                             AXME_TRACE("Load media asset failed, %s", errStr.UTF8String);
                                          }
                                        }];
 

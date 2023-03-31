@@ -1,12 +1,12 @@
 
 #pragma once
 
-#if !defined(ANME_NO_AXMOL)
+#if !defined(AXME_NO_AXMOL)
 #    include "base/CCConsole.h"
 #    include "platform/CCPlatformMacros.h"
-#    define NME_TRACE AXLOG
+#    define AXME_TRACE AXLOG
 #else
-#    define NME_TRACE printf
+#    define AXME_TRACE printf
 #    define NS_AX_BEGIN \
         namespace ax    \
         {
@@ -79,7 +79,7 @@ enum class MEMediaState
  *   - Y420V/F: on apple, needs test
  */
 
-enum class MEVideoSampleFormat
+enum class MEVideoPixelFormat
 {
     NONE,
     YUY2,
@@ -100,45 +100,72 @@ struct MEIntPoint
     bool equals(const MEIntPoint& rhs) const { return this->x == rhs.x && this->y == rhs.y; }
 };
 
-struct MEYUVDescriptor
+#if defined(_DEBUG)
+struct YCbCrBiPlanarPixelInfo
 {
+    unsigned int YPitch;
     MEIntPoint YDim;
-    MEIntPoint UVDim;
-    int YPitch;   // bytes per row
-    int UVPitch;  // bytes per row
-    int YDataLen;
-    int UVDataLen;
-    bool FullRange = true;
+    unsigned int CbCrPitch;
+    MEIntPoint CbCrDim;
+};
+#endif
+
+/*
+ *
+ * RGB32/BGR32: _dim==_videoDim
+ * H264(YUY2):
+ *   LumaTexture(LA8, RG8):
+ *     - _dim.x = ALIGN(_videoDim.x, 16),
+ *     - _dim.y = _videoDim.y
+ *   CHromaTexture(RGBA8)
+ *     - chromaDim.x = _dim.x / 2
+ *     - chromaDim.y = _dim.y
+ * NV12/HEVC:
+ *   LumaTexture(
+ *     - _dim.x = ALIGN(_videoDim.x, 32)
+ *     - _dim.y = ALIGN(_videoDim.y, 32)
+ *   ChromaTexture(RG8)
+ *     - chromaDim.x = _dim.x / 2
+ *     - chromaDim.y = _dim.y / 2
+ */
+struct MEVideoPixelDesc
+{
+    MEVideoPixelDesc(MEVideoPixelFormat pixelFormat, const MEIntPoint& dim) : _PF(pixelFormat), _dim(dim) {}
+    MEVideoPixelFormat _PF;  // the pixel format
+    MEIntPoint _dim;         // the aligned frame size
+    bool _fullRange = true;
+    bool equals(const MEVideoPixelDesc& rhs) const { return _dim.equals(rhs._dim) && _PF == rhs._PF && _fullRange == rhs._fullRange; }
 };
 
-struct MEVideoTextueSample
+struct MEVideoFrame
 {
-    yasio::byte_buffer _buffer;
-    MEIntPoint _bufferDim;
-    MEIntPoint _videoDim;
-    MEVideoSampleFormat _format = MEVideoSampleFormat::NONE;
-    int _stride                 = 0;  // bytesPerRow
-    int _mods                   = 0;  // whether format, videoDim changed
-
-    MEYUVDescriptor _yuvDesc;
+    MEVideoFrame(const uint8_t* data, size_t len, const MEVideoPixelDesc& vpd, const MEIntPoint& videoDim)
+        : _vpd(vpd), _dataPointer(data), _dataLen(len), _videoDim(videoDim){};
+    const uint8_t* _dataPointer;  // the video data
+    const size_t _dataLen;        // the video data len
+    MEVideoPixelDesc _vpd;        // the video pixel desc
+    MEIntPoint _videoDim;         // the aligned frame size
+#if defined(_DEBUG)
+    YCbCrBiPlanarPixelInfo _yuvPixelInfo;
+#endif
 };
 
 class MediaEngine
 {
 public:
     virtual ~MediaEngine() {}
-    virtual void SetMediaEventCallback(MEMediaEventCallback cb)        = 0;
-    virtual void SetAutoPlay(bool bAutoPlay)                           = 0;
-    virtual bool Open(std::string_view sourceUri)                      = 0;
-    virtual bool Close()                                               = 0;
-    virtual bool SetLoop(bool bLooping)                                = 0;
-    virtual bool SetRate(double fRate)                                 = 0;
-    virtual bool SetCurrentTime(double fSeekTimeInSec)                 = 0;
-    virtual bool Play()                                                = 0;
-    virtual bool Pause()                                               = 0;
-    virtual bool Stop()                                                = 0;
-    virtual MEMediaState GetState() const                              = 0;
-    virtual bool GetLastVideoSample(MEVideoTextueSample& sample) const = 0;
+    virtual void SetMediaEventCallback(MEMediaEventCallback cb)                        = 0;
+    virtual void SetAutoPlay(bool bAutoPlay)                                           = 0;
+    virtual bool Open(std::string_view sourceUri)                                      = 0;
+    virtual bool Close()                                                               = 0;
+    virtual bool SetLoop(bool bLooping)                                                = 0;
+    virtual bool SetRate(double fRate)                                                 = 0;
+    virtual bool SetCurrentTime(double fSeekTimeInSec)                                 = 0;
+    virtual bool Play()                                                                = 0;
+    virtual bool Pause()                                                               = 0;
+    virtual bool Stop()                                                                = 0;
+    virtual MEMediaState GetState() const                                              = 0;
+    virtual void TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) = 0;
 };
 
 class MediaEngineFactory

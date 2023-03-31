@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 #if defined(_WIN32)
-#include <winapifamily.h>
+#    include <winapifamily.h>
 #endif
 
 #if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
@@ -48,6 +48,11 @@
 #    include <string>
 
 #    include "MediaEngine.h"
+
+#    include <atomic>
+#    include <mutex>
+
+#    include "readerwriterqueue/readerwriterqueue.h"
 
 #    include "yasio/detail/byte_buffer.hpp"
 
@@ -174,7 +179,9 @@ public:
     bool Stop() override;
 
     void HandleVideoSample(const uint8_t* buf, size_t len);
-    bool GetLastVideoSample(MEVideoTextueSample& sample) const override;
+    //bool GetLastVideoSample(MEVideoTextueSample& sample) const override;
+
+    void TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
 
     void FireMediaEvent(MEMediaEventType event)
     {
@@ -247,26 +254,25 @@ protected:
 
     mutable CritSec m_critsec;  // Protects the seeking and rate-change states.
 
-    HWND m_hwndEvent;                         // App window to receive events.
-    MEMediaState m_state = MEMediaState::Closed;  // Current state of the media session.
-    HANDLE m_hCloseEvent;                     // Event to wait on while closing
+    HWND m_hwndEvent;                                          // App window to receive events.
+    std::atomic<MEMediaState> m_state = MEMediaState::Closed;  // Current state of the media session.
+    HANDLE m_hCloseEvent;                                      // Event to wait on while closing
 
     MEIntPoint m_videoExtent;
-    MEIntPoint m_frameExtent; // may same with m_videoExtent
+    MEIntPoint m_frameExtent;  // may same with m_videoExtent
 
     BOOL m_bLooping  = FALSE;
     BOOL m_bAutoPlay = TRUE;
 
     BOOL m_bIsH264 = FALSE;
-    BOOL m_bIsHEVC = FALSE; // hvc1,hev1
+    BOOL m_bIsHEVC = FALSE;  // hvc1,hev1
     GUID m_VideoOutputFormat{};
 
     MEMediaEventCallback m_eventCallback;
 
-    MEVideoSampleFormat m_videoSampleFormat = MEVideoSampleFormat::NONE;
+    MEVideoPixelFormat m_videoPF = MEVideoPixelFormat::NONE;
 
-    yasio::byte_buffer m_lastVideoFrame;
-    mutable bool m_videoSampleDirty = false;
+    mutable moodycamel::ReaderWriterQueue<yasio::byte_buffer> m_frames;
 };
 
 struct WmfMediaEngineFactory : public MediaEngineFactory
