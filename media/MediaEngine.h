@@ -16,7 +16,7 @@
         break
 #endif
 
-#define AXME_USE_IMFME 1
+// #define AXME_USE_IMFME 1
 
 #if __has_include(<winapifamily.h>)
 #    include < winapifamily.h>
