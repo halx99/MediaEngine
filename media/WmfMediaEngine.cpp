@@ -395,6 +395,7 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
         }
         catch (const std::exception& ex)
         {
+            AXME_TRACE("Exception occurred when Open Media: %s", ex.what());
             m_state = MEMediaState::Error;
         }
     });
@@ -490,10 +491,10 @@ void WmfMediaEngine::ClearPendingFrames()
     m_framesQueue.clear();
 }
 
-void WmfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
+bool WmfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
 {
     if (m_state != MEMediaState::Playing || m_framesQueue.empty())
-        return;
+        return false;
 
     std::unique_lock<std::mutex> lck(m_framesQueueMtx);
     if (!m_framesQueue.empty())
@@ -505,7 +506,10 @@ void WmfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)>
         callback(MEVideoFrame{buffer.data(), buffer.size(),
                               MEVideoPixelDesc{m_videoPF, MEIntPoint{m_frameExtent.x, m_frameExtent.y}},
                               m_videoExtent});
+
+        return true;
     }
+    return false;
 }
 
 //-------------------------------------------------------------------

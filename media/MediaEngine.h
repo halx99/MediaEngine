@@ -168,7 +168,7 @@ public:
     virtual bool Pause()                                                               = 0;
     virtual bool Stop()                                                                = 0;
     virtual MEMediaState GetState() const                                              = 0;
-    virtual void TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) = 0;
+    virtual bool TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) = 0;
 };
 
 class MediaEngineFactory

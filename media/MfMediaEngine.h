@@ -76,7 +76,7 @@ public:
     bool SetLoop(bool bLoop) override;
     bool SetRate(double fRate) override;
 
-    void TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
+    bool TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
 
     bool Play() override;
     bool Pause() override;

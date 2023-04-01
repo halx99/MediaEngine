@@ -180,7 +180,7 @@ public:
     void HandleVideoSample(const uint8_t* buf, size_t len);
     //bool GetLastVideoSample(MEVideoTextueSample& sample) const override;
 
-    void TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
+    bool TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
 
     void FireMediaEvent(MEMediaEventType event)
     {

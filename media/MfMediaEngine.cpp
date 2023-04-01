@@ -227,7 +227,7 @@ bool MfMediaEngine::SetCurrentTime(double fPosInSeconds)
     return false;
 }
 
-void MfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
+bool MfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
 {
     if (m_mediaEngine != nullptr && m_state == MEMediaState::Playing)
     {
@@ -256,9 +256,10 @@ void MfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> 
 
             callback(MEVideoFrame{data, bufferSize, MEVideoPixelDesc{MEVideoPixelFormat::BGR32, m_videoExtent},
                                   m_videoExtent});
-
+            return true;
         } while (false);
     }
+    return false;
 }
 
 void MfMediaEngine::OnMediaEngineEvent(uint32_t meEvent)
