@@ -51,8 +51,7 @@
 
 #    include <atomic>
 #    include <mutex>
-
-#    include "readerwriterqueue/readerwriterqueue.h"
+#    include <deque>
 
 #    include "yasio/detail/byte_buffer.hpp"
 
@@ -199,6 +198,8 @@ protected:
 
     HRESULT GetNativeVideoSize(DWORD* cx, DWORD* cy);
 
+     void ClearPendingFrames();
+
 protected:
     // Destructor is private. Caller should call Release.
     virtual ~WmfMediaEngine();
@@ -272,7 +273,8 @@ protected:
 
     MEVideoPixelFormat m_videoPF = MEVideoPixelFormat::NONE;
 
-    mutable moodycamel::ReaderWriterQueue<yasio::byte_buffer> m_frames;
+    mutable std::deque<yasio::byte_buffer> m_framesQueue;
+    mutable std::mutex m_framesQueueMtx;
 };
 
 struct WmfMediaEngineFactory : public MediaEngineFactory

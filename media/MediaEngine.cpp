@@ -1,7 +1,7 @@
 #include "MediaEngine.h"
 
 #if defined(WINAPI_FAMILY)
-#    if WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP && !defined(ANME_USE_IMFME)
+#    if WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP && !defined(AXME_USE_IMFME)
 #        include "media/WmfMediaEngine.h"
 #    else
 #        include "media/MfMediaEngine.h"
@@ -33,7 +33,7 @@ NS_AX_BEGIN
 std::unique_ptr<MediaEngineFactory> CreatePlatformMediaEngineFactory()
 {
 #if defined(WINAPI_FAMILY)
-#    if WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP && !defined(ANME_USE_IMFME)
+#    if WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP && !defined(AXME_USE_IMFME)
     return axstd::static_pointer_cast<MediaEngineFactory>(std::make_unique<WmfMediaEngineFactory>());
 #    else
     return axstd::static_pointer_cast<MediaEngineFactory>(std::make_unique<MfMediaEngineFactory>());

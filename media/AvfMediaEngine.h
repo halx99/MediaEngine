@@ -22,7 +22,7 @@ public:
     bool Pause() override;
     bool Stop() override;
     MEMediaState GetState() const override;
-    bool GetLastVideoSample(MEVideoTextueSample& sample) const override;
+    void TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
     
     void onStatusNotification(void* context);
     void onPlayerEnd();

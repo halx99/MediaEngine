@@ -335,21 +335,21 @@ void AvfMediaEngine::onStatusNotification(void* context)
         this->Play();
 }
 
-bool AvfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
+void AvfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
 {
     auto videoOutput = static_cast<AVPlayerItemVideoOutput*>(this->_playerOutput);
     if (!videoOutput)
-        return false;
+        return;
 
     CMTime currentTime = [videoOutput itemTimeForHostTime:CACurrentMediaTime()];
 
     if (![videoOutput hasNewPixelBufferForItemTime:currentTime])
-        return false;
+        return;
 
     CVPixelBufferRef videoFrame = [videoOutput copyPixelBufferForItemTime:currentTime itemTimeForDisplay:nullptr];
 
     if (!videoFrame)
-        return false;
+        return;
 
     auto& videoDim = _videoExtent;
     MEIntPoint bufferDim;
@@ -400,30 +400,12 @@ bool AvfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
         auto frameData       = (uint8_t*)CVPixelBufferGetBaseAddress(videoFrame);
         size_t frameDataSize = CVPixelBufferGetDataSize(videoFrame);
 
-        sample._buffer.assign(frameData, frameData + frameDataSize, std::true_type{});
-        sample._bufferDim = videoDim;
+        // sample._buffer.assign(frameData, frameData + frameDataSize, std::true_type{});
+        // sample._bufferDim = videoDim;
     }
     CVPixelBufferUnlockBaseAddress(videoFrame, kCVPixelBufferLock_ReadOnly);
 
     CVPixelBufferRelease(videoFrame);
-
-    sample._mods = 0;
-    if (!sample._videoDim.equals(videoDim))
-    {
-        sample._videoDim = videoDim;
-        ++sample._mods;
-    }
-    if (sample._format != _videoSampleFormat)
-    {
-        sample._format = _videoSampleFormat;
-        ++sample._mods;
-    }
-    if (sample._yuvDesc.FullRange != _bFullColorRange) {
-        sample._yuvDesc.FullRange = _bFullColorRange;
-        ++sample._mods;
-    }
-
-    return true;
 }
 
 bool AvfMediaEngine::Close()

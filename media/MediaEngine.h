@@ -16,7 +16,7 @@
         break
 #endif
 
-// #define ANME_USE_IMFME 1
+#define AXME_USE_IMFME 1
 
 #if __has_include(<winapifamily.h>)
 #    include < winapifamily.h>
@@ -103,9 +103,9 @@ struct MEIntPoint
 #if defined(_DEBUG)
 struct YCbCrBiPlanarPixelInfo
 {
-    unsigned int YPitch;
+    unsigned int YPitch = 0;
     MEIntPoint YDim;
-    unsigned int CbCrPitch;
+    unsigned int CbCrPitch = 0;
     MEIntPoint CbCrDim;
 };
 #endif
@@ -146,10 +146,13 @@ struct MEVideoFrame
     MEVideoPixelDesc _vpd;        // the video pixel desc
     MEIntPoint _videoDim;         // the aligned frame size
 #if defined(_DEBUG)
-    YCbCrBiPlanarPixelInfo _yuvPixelInfo;
+    YCbCrBiPlanarPixelInfo _yuvPixelInfo{};
 #endif
 };
 
+//
+// redisigned corss-platform MediaEngine, inspired from microsoft media foundation: IMFMediaEngine
+//
 class MediaEngine
 {
 public:

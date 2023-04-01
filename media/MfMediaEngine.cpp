@@ -7,7 +7,7 @@
 
 #include "media/MfMediaEngine.h"
 
-#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP || defined(ANME_USE_IMFME))
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP || defined(AXME_USE_IMFME))
 
 #    include "ntcvt/ntcvt.hpp"
 
@@ -119,7 +119,7 @@ bool MfMediaEngine::Initialize()
 
     DX::ThrowIfFailed(mfFactory->CreateInstance(0, attributes.Get(), m_mediaEngine.ReleaseAndGetAddressOf()));
 
-    CreateInstance(CLSID_WICImagingFactory, m_wicFactory);
+    MFUtils::CreateInstance(CLSID_WICImagingFactory, m_wicFactory);
 
     return m_mediaEngine != nullptr;
 }
@@ -227,7 +227,7 @@ bool MfMediaEngine::SetCurrentTime(double fPosInSeconds)
     return false;
 }
 
-bool MfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
+void MfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
 {
     if (m_mediaEngine != nullptr && m_state == MEMediaState::Playing)
     {
@@ -254,26 +254,11 @@ bool MfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
             BYTE* data{nullptr};
             AX_BREAK_IF(FAILED(lockedData->GetDataPointer(&bufferSize, &data)));
 
-            sample._buffer.assign(data, data + bufferSize, std::true_type{});
-            sample._bufferDim = m_videoExtent;
-            sample._stride    = sample._bufferDim.x * 4;
-            sample._mods      = 0;
-            if (!sample._videoDim.equals(m_videoExtent))
-            {
-                sample._videoDim = m_videoExtent;
-                ++sample._mods;
-            }
-            if (sample._format != MEVideoSampleFormat::BGR32)
-            {
-                sample._format = MEVideoSampleFormat::BGR32;
-                ++sample._mods;
-            }
+            callback(MEVideoFrame{data, bufferSize, MEVideoPixelDesc{MEVideoPixelFormat::BGR32, m_videoExtent},
+                                  m_videoExtent});
 
-            return true;
         } while (false);
     }
-
-    return false;
 }
 
 void MfMediaEngine::OnMediaEngineEvent(uint32_t meEvent)

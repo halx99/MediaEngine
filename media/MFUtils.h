@@ -40,6 +40,14 @@ inline TComPtr<_Ty> ReferencedPtrToComPtr(_Ty* ptr)
     return obj;
 }
 
+template <typename T>
+inline HRESULT CreateInstance(REFCLSID clsid, Microsoft::WRL::ComPtr<T>& ptr)
+{
+    // ASSERT(!ptr);
+    return CoCreateInstance(clsid, nullptr, CLSCTX_INPROC_SERVER, __uuidof(T),
+                            reinterpret_cast<void**>(ptr.GetAddressOf()));
+}
+
 HRESULT InitializeMFOnce();
 
 }  // namespace MFUtils

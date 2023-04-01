@@ -37,15 +37,15 @@ NS_AX_BEGIN
 
 // const UINT WM_APP_PLAYER_EVENT = ::RegisterWindowMessageW(L"mfmedia-event");
 
-//static MFOffset MakeOffset(float v)
+// static MFOffset MakeOffset(float v)
 //{
-//    // v = offset.value + (offset.fract / denominator), where denominator = 65536.0f.
-//    const int denominator = std::numeric_limits<WORD>::max() + 1;
-//    MFOffset offset;
-//    offset.value = short(v);
-//    offset.fract = WORD(denominator * (v - offset.value));
-//    return offset;
-//}
+//     // v = offset.value + (offset.fract / denominator), where denominator = 65536.0f.
+//     const int denominator = std::numeric_limits<WORD>::max() + 1;
+//     MFOffset offset;
+//     offset.value = short(v);
+//     offset.fract = WORD(denominator * (v - offset.value));
+//     return offset;
+// }
 
 //-------------------------------------------------------------------
 //  Name: CreateSourceStreamNode
@@ -237,6 +237,8 @@ WmfMediaEngine::~WmfMediaEngine()
     // CreateInstance has failed. Also, calling Shutdown() twice is
     // harmless.
 
+    ClearPendingFrames();
+
     Shutdown();
 }
 
@@ -326,9 +328,11 @@ HRESULT WmfMediaEngine::QueryInterface(REFIID iid, void** ppv)
 
 bool WmfMediaEngine::Open(std::string_view sourceUri)
 {
-    auto wsourceUri = ntcvt::from_chars(sourceUri);
+    Close();
 
-    auto sURL = wsourceUri.c_str();
+    if (sourceUri.empty())
+        return false;
+
     AXME_TRACE("WmfMediaEngine::OpenURL\n");
     AXME_TRACE("URL = %s\n", sourceUri.data());
 
@@ -338,63 +342,71 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
     // 4. Queue the topology [asynchronous]
     // 5. Start playback [asynchronous - does not happen in this method.]
 
-    HRESULT hr = S_OK;
-    TComPtr<IMFTopology> pTopology;
-    TComPtr<IMFClock> pClock;
-
     // Create the media session.
-    CHECK_HR(hr = CreateSession());
-
-    // Create the media source.
-    CHECK_HR(hr = CreateMediaSource(sURL));
-
-    // Create a partial topology.
-    CHECK_HR(hr = CreateTopologyFromSource(&pTopology));
-
-    // Set the topology on the media session.
-    CHECK_HR(hr = m_pSession->SetTopology(0, pTopology.Get()));
-
-    // If SetTopology succeeded, the media session will queue an
-    // MESessionTopologySet event.
-
-    // ======> Read media properties
-    // Get the session capabilities.
-    CHECK_HR(hr = m_pSession->GetSessionCapabilities(&m_caps));
-
-    // Get the duration from the presentation descriptor (optional)
-    (void)m_PresentDescriptor->GetUINT64(MF_PD_DURATION, (UINT64*)&m_hnsDuration);
-
-    // Get the presentation clock (optional)
-    hr = m_pSession->GetClock(&pClock);
-    if (SUCCEEDED(hr))
-        CHECK_HR(hr = pClock->QueryInterface(IID_PPV_ARGS(&m_pClock)));
-
-    // Get the rate control interface (optional)
-    CHECK_HR(hr = MFGetService(m_pSession.Get(), MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&m_RateControl)));
-
-    CHECK_HR(hr = MFGetService(m_pSession.Get(), MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&m_RateSupport)));
-
-    // Check if rate 0 (scrubbing) is supported.
-    if (SUCCEEDED(m_RateSupport->IsRateSupported(TRUE, 0, NULL)))
-        m_bCanScrub = TRUE;
-
-    // if m_pRate is NULL, m_bCanScrub must be FALSE.
-    assert(m_RateControl || !m_bCanScrub);
+    if (FAILED(CreateSession()))
+        return false;
 
     // Set our state to "open pending"
     m_state = MEMediaState::Preparing;
 
-done:
-    if (FAILED(hr))
-        m_state = MEMediaState::Closed;
+    TComPtr<IUnknown> sharedFromThis;
+    this->QueryInterface(IID_IUnknown, &sharedFromThis);
+    std::thread t([this, sharedFromThis, wsourceUri = ntcvt::from_chars(sourceUri)] {
+        TComPtr<IMFTopology> pTopology;
+        TComPtr<IMFClock> pClock;
 
-    // SAFE_RELEASE(pTopology);
+        try
+        {
+            // Create the media source.
+            DX::ThrowIfFailed(CreateMediaSource(wsourceUri.c_str()));
 
-    return SUCCEEDED(hr);
+            // Create a partial topology.
+            DX::ThrowIfFailed(CreateTopologyFromSource(&pTopology));
+
+            // Set the topology on the media session.
+            DX::ThrowIfFailed(m_pSession->SetTopology(0, pTopology.Get()));
+
+            // If SetTopology succeeded, the media session will queue an
+            // MESessionTopologySet event.
+
+            // ======> Read media properties
+            // Get the session capabilities.
+            DX::ThrowIfFailed(m_pSession->GetSessionCapabilities(&m_caps));
+
+            // Get the duration from the presentation descriptor (optional)
+            (void)m_PresentDescriptor->GetUINT64(MF_PD_DURATION, (UINT64*)&m_hnsDuration);
+
+            // Get the presentation clock (optional)
+            auto hr = m_pSession->GetClock(&pClock);
+            if (SUCCEEDED(hr))
+                DX::ThrowIfFailed(hr = pClock->QueryInterface(IID_PPV_ARGS(&m_pClock)));
+
+            // Get the rate control interface (optional)
+            DX::ThrowIfFailed(MFGetService(m_pSession.Get(), MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&m_RateControl)));
+
+            DX::ThrowIfFailed(MFGetService(m_pSession.Get(), MF_RATE_CONTROL_SERVICE, IID_PPV_ARGS(&m_RateSupport)));
+
+            // Check if rate 0 (scrubbing) is supported.
+            if (SUCCEEDED(m_RateSupport->IsRateSupported(TRUE, 0, NULL)))
+                m_bCanScrub = TRUE;
+
+            // if m_pRate is NULL, m_bCanScrub must be FALSE.
+            assert(m_RateControl || !m_bCanScrub);
+        }
+        catch (const std::exception& ex)
+        {
+            m_state = MEMediaState::Error;
+        }
+    });
+    t.detach();
+
+    return false;
 }
 
 bool WmfMediaEngine::Close()
 {
+    ClearPendingFrames();
+
     HRESULT hr = S_OK;
     auto state = GetState();
     if (state != MEMediaState::Closing && state != MEMediaState::Closed)
@@ -468,75 +480,33 @@ done:
 
 void WmfMediaEngine::HandleVideoSample(const uint8_t* buf, size_t len)
 {
-    m_frames.enqueue(yasio::byte_buffer{buf, buf + len});
+    std::unique_lock<std::mutex> lck(m_framesQueueMtx);
+    m_framesQueue.emplace_back(buf, buf + len);
+}
+
+void WmfMediaEngine::ClearPendingFrames()
+{
+    std::unique_lock<std::mutex> lck(m_framesQueueMtx);
+    m_framesQueue.clear();
 }
 
 void WmfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback)
 {
-    if (m_state != MEMediaState::Playing)
+    if (m_state != MEMediaState::Playing || m_framesQueue.empty())
         return;
-    yasio::byte_buffer buffer;
-    if (m_frames.try_dequeue(buffer))
-        callback(MEVideoFrame{buffer.data(), buffer.size(), MEVideoPixelDesc{m_videoPF, MEIntPoint{m_frameExtent.x, m_frameExtent.y}}, m_videoExtent});
-}
 
-//bool WmfMediaEngine::GetLastVideoSample(MEVideoTextueSample& sample) const
-//{
-//    yasio::byte_buffer buffer;
-//    if (m_frames.try_dequeue(buffer))
-//    {
-//        sample._buffer = std::move(buffer);
-//        m_frames.pop();
-//
-//        switch (m_videoPF)
-//        {
-//        case MEVideoPixelFormat::YUY2:
-//            sample._bufferDim.x = m_bIsH264 ? YASIO_SZ_ALIGN(m_frameExtent.x, 16) : m_frameExtent.x;
-//            sample._bufferDim.y = m_frameExtent.y;
-//            sample._stride      = sample._bufferDim.x * 2;
-//            break;
-//        case MEVideoPixelFormat::NV12:
-//            // HEVC(H265) on Windows, both height width align 32
-//            // refer to: https://community.intel.com/t5/Media-Intel-oneAPI-Video/32-byte-alignment-for-HEVC/m-p/1048275
-//            sample._yuvDesc.YDim.x    = YASIO_SZ_ALIGN(m_videoExtent.x, 32);
-//            sample._yuvDesc.YDim.y    = m_bIsHEVC ? YASIO_SZ_ALIGN(m_videoExtent.y, 32) : m_videoExtent.y;
-//            sample._yuvDesc.UVDim.x   = sample._yuvDesc.YDim.x / 2;
-//            sample._yuvDesc.UVDim.y   = sample._yuvDesc.YDim.y / 2;
-//            sample._yuvDesc.YPitch    = sample._yuvDesc.YDim.x;
-//            sample._yuvDesc.UVPitch   = sample._yuvDesc.YPitch;
-//            sample._yuvDesc.YDataLen  = sample._yuvDesc.YPitch * sample._yuvDesc.YDim.y;
-//            sample._yuvDesc.UVDataLen = sample._yuvDesc.UVPitch * sample._yuvDesc.UVDim.y;
-//
-//            sample._bufferDim.x = sample._yuvDesc.YDim.x;
-//            sample._bufferDim.y = sample._yuvDesc.YDim.y * 3 / 2;
-//            sample._stride      = sample._bufferDim.x;
-//
-//            assert(sample._bufferDim.x * sample._bufferDim.y == static_cast<int>(sample._buffer.size()));
-//            assert((sample._yuvDesc.YDataLen + sample._yuvDesc.UVDataLen) == static_cast<int>(sample._buffer.size()));
-//
-//            break;
-//        default:
-//            assert(m_videoPF == MEVideoPixelFormat::RGB32 || m_videoPF == MEVideoPixelFormat::BGR32);
-//            sample._bufferDim = m_videoExtent;
-//            sample._stride    = m_videoExtent.x * 4;
-//        }
-//
-//        sample._mods = 0;
-//        if (!sample._videoDim.equals(m_videoExtent))
-//        {
-//            sample._videoDim = m_videoExtent;
-//            ++sample._mods;
-//        }
-//        if (sample._format != m_videoPF)
-//        {
-//            sample._format = m_videoPF;
-//            ++sample._mods;
-//        }
-//        return true;
-//    }
-//
-//    return false;
-//}
+    std::unique_lock<std::mutex> lck(m_framesQueueMtx);
+    if (!m_framesQueue.empty())
+    {
+        auto buffer = std::move(m_framesQueue.front());
+        m_framesQueue.pop_front();
+        lck.unlock();  // unlock immidiately before invoke user callback (maybe upload buffer to GPU)
+
+        callback(MEVideoFrame{buffer.data(), buffer.size(),
+                              MEVideoPixelDesc{m_videoPF, MEIntPoint{m_frameExtent.x, m_frameExtent.y}},
+                              m_videoExtent});
+    }
+}
 
 //-------------------------------------------------------------------
 //  HandleEvent
@@ -1739,7 +1709,7 @@ HRESULT WmfMediaEngine::GetNativeVideoSize(DWORD* cx, DWORD* cy)
         *cx = mfArea.Area.cx;
         *cy = mfArea.Area.cy;
     }
-    else // fallback to frame extent
+    else  // fallback to frame extent
     {
         *cx = m_frameExtent.x;
         *cy = m_frameExtent.y;
