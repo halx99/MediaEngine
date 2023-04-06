@@ -253,11 +253,14 @@ protected:
     SeekState m_request{CmdNone, 1.0, FALSE, 0};  // Pending request state.
     BOOL m_bPending = FALSE;                      // Is a request pending?
 
+    std::atomic<bool> m_bOpenPending = false;
+
     mutable CritSec m_critsec;  // Protects the seeking and rate-change states.
 
-    HWND m_hwndEvent;                                          // App window to receive events.
     std::atomic<MEMediaState> m_state = MEMediaState::Closed;  // Current state of the media session.
-    HANDLE m_hCloseEvent;                                      // Event to wait on while closing
+
+    HANDLE m_hOpenEvent  = nullptr;  // App window to receive events.
+    HANDLE m_hCloseEvent = nullptr;  // Event to wait on while closing
 
     MEIntPoint m_videoExtent;
     MEIntPoint m_frameExtent;  // may same with m_videoExtent
@@ -271,7 +274,7 @@ protected:
 
     MEMediaEventCallback m_eventCallback;
 
-    MEVideoPixelFormat m_videoPF = MEVideoPixelFormat::NONE;
+    MEVideoPixelFormat m_videoPF = MEVideoPixelFormat::INVALID;
 
     mutable std::deque<yasio::byte_buffer> m_framesQueue;
     mutable std::mutex m_framesQueueMtx;

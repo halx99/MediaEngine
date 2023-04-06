@@ -213,7 +213,8 @@ HRESULT WmfMediaEngine::CreateInstance(WmfMediaEngine** ppPlayer)
 //  WmfMediaEngine constructor
 /////////////////////////////////////////////////////////////////////////
 
-WmfMediaEngine::WmfMediaEngine() : m_pSession(), m_pSource(), m_hwndEvent(nullptr), m_hCloseEvent(NULL), m_nRefCount(1)
+WmfMediaEngine::WmfMediaEngine()
+    : m_nRefCount(1)
 {}
 
 ///////////////////////////////////////////////////////////////////////
@@ -259,6 +260,12 @@ HRESULT WmfMediaEngine::Initialize()
 
     // Start up Media Foundation platform.
     CHECK_HR(hr = MFUtils::InitializeMFOnce());
+
+    m_hOpenEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    if (m_hOpenEvent == NULL)
+    {
+        CHECK_HR(hr = HRESULT_FROM_WIN32(GetLastError()));
+    }
 
     m_hCloseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     if (m_hCloseEvent == NULL)
@@ -351,6 +358,8 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
 
     TComPtr<IUnknown> sharedFromThis;
     this->QueryInterface(IID_IUnknown, &sharedFromThis);
+
+    m_bOpenPending = true;
     std::thread t([this, sharedFromThis, wsourceUri = ntcvt::from_chars(sourceUri)] {
         TComPtr<IMFTopology> pTopology;
         TComPtr<IMFClock> pClock;
@@ -359,6 +368,8 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
         {
             // Create the media source.
             DX::ThrowIfFailed(CreateMediaSource(wsourceUri.c_str()));
+            if (!m_pSession)
+                DX::ThrowIfFailed(E_POINTER);
 
             // Create a partial topology.
             DX::ThrowIfFailed(CreateTopologyFromSource(&pTopology));
@@ -398,6 +409,9 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
             AXME_TRACE("Exception occurred when Open Media: %s", ex.what());
             m_state = MEMediaState::Error;
         }
+
+        m_bOpenPending = false;
+        SetEvent(m_hOpenEvent);
     });
     t.detach();
 
@@ -406,6 +420,9 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
 
 bool WmfMediaEngine::Close()
 {
+    if (m_bOpenPending)
+        WaitForSingleObject(m_hOpenEvent, INFINITE);
+
     ClearPendingFrames();
 
     HRESULT hr = S_OK;
@@ -503,9 +520,38 @@ bool WmfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)>
         m_framesQueue.pop_front();
         lck.unlock();  // unlock immidiately before invoke user callback (maybe upload buffer to GPU)
 
-        callback(MEVideoFrame{buffer.data(), buffer.size(),
-                              MEVideoPixelDesc{m_videoPF, MEIntPoint{m_frameExtent.x, m_frameExtent.y}},
-                              m_videoExtent});
+        auto cbcrData =
+            (m_videoPF == MEVideoPixelFormat::NV12) ? buffer.data() + m_frameExtent.x * m_frameExtent.y : nullptr;
+        MEVideoFrame frame{buffer.data(), cbcrData, buffer.size(),
+                           MEVideoPixelDesc{m_videoPF, MEIntPoint{m_frameExtent.x, m_frameExtent.y}}, m_videoExtent};
+#    if defined(_DEBUG)
+        switch (m_videoPF)
+        {
+        case MEVideoPixelFormat::YUY2:
+            assert(m_frameExtent.x == m_bIsH264 ? YASIO_SZ_ALIGN(m_frameExtent.x, 16) : m_frameExtent.x);
+            break;
+        case MEVideoPixelFormat::NV12:
+        {
+            // HEVC(H265) on Windows, both height width align 32
+            // refer to: https://community.intel.com/t5/Media-Intel-oneAPI-Video/32-byte-alignment-for-HEVC/m-p/1048275
+            auto& desc     = frame._ycbcrDesc;
+            desc.YDim.x    = YASIO_SZ_ALIGN(m_videoExtent.x, 32);
+            desc.YDim.y    = m_bIsHEVC ? YASIO_SZ_ALIGN(m_videoExtent.y, 32) : m_videoExtent.y;
+            desc.CbCrDim.x = desc.YDim.x / 2;
+            desc.CbCrDim.y = desc.YDim.y / 2;
+            desc.YPitch    = desc.YDim.x;
+            desc.CbCrPitch = desc.YPitch;
+
+            assert(frame._vpd._dim.x * frame._vpd._dim.y * 3 / 2 == static_cast<int>(frame._dataLen));
+            assert((desc.YPitch * desc.YDim.y + desc.CbCrPitch * desc.CbCrDim.y) == static_cast<int>(frame._dataLen));
+            break;
+        }
+        default:
+            assert(m_videoPF == MEVideoPixelFormat::RGB32 || m_videoPF == MEVideoPixelFormat::BGR32);
+        }
+#    endif
+        // check data
+        callback(frame);
 
         return true;
     }
@@ -643,7 +689,13 @@ HRESULT WmfMediaEngine::Shutdown()
     if (m_hCloseEvent)
     {
         CloseHandle(m_hCloseEvent);
-        m_hCloseEvent = NULL;
+        m_hCloseEvent = nullptr;
+    }
+
+    if (m_hOpenEvent)
+    {
+        CloseHandle(m_hOpenEvent);
+        m_hOpenEvent = nullptr;
     }
 
     return hr;

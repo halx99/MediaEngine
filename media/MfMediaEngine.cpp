@@ -254,7 +254,7 @@ bool MfMediaEngine::TransferVideoFrame(std::function<void(const MEVideoFrame&)> 
             BYTE* data{nullptr};
             AX_BREAK_IF(FAILED(lockedData->GetDataPointer(&bufferSize, &data)));
 
-            callback(MEVideoFrame{data, bufferSize, MEVideoPixelDesc{MEVideoPixelFormat::BGR32, m_videoExtent},
+            callback(MEVideoFrame{data, nullptr, bufferSize, MEVideoPixelDesc{MEVideoPixelFormat::BGR32, m_videoExtent},
                                   m_videoExtent});
             return true;
         } while (false);

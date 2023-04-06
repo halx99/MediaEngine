@@ -19,7 +19,7 @@
 // #define AXME_USE_IMFME 1
 
 #if __has_include(<winapifamily.h>)
-#    include < winapifamily.h>
+#    include <winapifamily.h>
 #endif
 
 #include <functional>
@@ -81,7 +81,7 @@ enum class MEMediaState
 
 enum class MEVideoPixelFormat
 {
-    NONE,
+    INVALID,
     YUY2,
     NV12,  // '420v' '420f'
     RGB32,
@@ -100,7 +100,7 @@ struct MEIntPoint
     bool equals(const MEIntPoint& rhs) const { return this->x == rhs.x && this->y == rhs.y; }
 };
 
-#if defined(_DEBUG)
+#if defined(_DEBUG) || !defined(_NDEBUG)
 struct YCbCrBiPlanarPixelInfo
 {
     unsigned int YPitch = 0;
@@ -130,23 +130,32 @@ struct YCbCrBiPlanarPixelInfo
  */
 struct MEVideoPixelDesc
 {
+    MEVideoPixelDesc() : _PF(MEVideoPixelFormat::INVALID), _dim() {}
     MEVideoPixelDesc(MEVideoPixelFormat pixelFormat, const MEIntPoint& dim) : _PF(pixelFormat), _dim(dim) {}
     MEVideoPixelFormat _PF;  // the pixel format
     MEIntPoint _dim;         // the aligned frame size
     bool _fullRange = true;
-    bool equals(const MEVideoPixelDesc& rhs) const { return _dim.equals(rhs._dim) && _PF == rhs._PF && _fullRange == rhs._fullRange; }
+    bool equals(const MEVideoPixelDesc& rhs) const
+    {
+        return _dim.equals(rhs._dim) && _PF == rhs._PF && _fullRange == rhs._fullRange;
+    }
 };
 
 struct MEVideoFrame
 {
-    MEVideoFrame(const uint8_t* data, size_t len, const MEVideoPixelDesc& vpd, const MEIntPoint& videoDim)
-        : _vpd(vpd), _dataPointer(data), _dataLen(len), _videoDim(videoDim){};
+    MEVideoFrame(const uint8_t* data,
+                 const uint8_t* cbcrData,
+                 size_t len,
+                 const MEVideoPixelDesc& vpd,
+                 const MEIntPoint& videoDim)
+        : _vpd(vpd), _dataPointer(data), _cbcrDataPointer(cbcrData), _dataLen(len), _videoDim(videoDim){};
     const uint8_t* _dataPointer;  // the video data
     const size_t _dataLen;        // the video data len
-    MEVideoPixelDesc _vpd;        // the video pixel desc
-    MEIntPoint _videoDim;         // the aligned frame size
-#if defined(_DEBUG)
-    YCbCrBiPlanarPixelInfo _yuvPixelInfo{};
+    const uint8_t* _cbcrDataPointer;
+    MEVideoPixelDesc _vpd;  // the video pixel desc
+    MEIntPoint _videoDim;   // the aligned frame size
+#if defined(_DEBUG) || !defined(_NDEBUG)
+    YCbCrBiPlanarPixelInfo _ycbcrDesc{};
 #endif
 };
 

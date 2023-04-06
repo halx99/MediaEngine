@@ -22,7 +22,7 @@ public:
     bool Pause() override;
     bool Stop() override;
     MEMediaState GetState() const override;
-    void TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
+    bool TransferVideoFrame(std::function<void(const MEVideoFrame&)> callback) override;
     
     void onStatusNotification(void* context);
     void onPlayerEnd();
@@ -40,7 +40,7 @@ public:
     
 private:
     MEMediaEventCallback _eventCallback;
-    MEVideoSampleFormat _videoSampleFormat = MEVideoSampleFormat::NONE;
+    MEVideoPixelFormat _videoPF = MEVideoPixelFormat::INVALID;
     MEMediaState _state = MEMediaState::Closed;
     MEIntPoint _videoExtent;
     AVPlayer* _player = nil;
