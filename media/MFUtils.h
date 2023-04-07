@@ -51,7 +51,7 @@ inline HRESULT CreateInstance(REFCLSID clsid, Microsoft::WRL::ComPtr<T>& ptr)
 
 HRESULT InitializeMFOnce();
 
-std::string_view GuidToString(const GUID& SubType);
+std::string_view GetVideoTypeName(const GUID& SubType);
 
 }  // namespace MFUtils
 
