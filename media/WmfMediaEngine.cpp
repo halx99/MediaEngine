@@ -413,7 +413,7 @@ bool WmfMediaEngine::Open(std::string_view sourceUri)
     });
     t.detach();
 
-    return false;
+    return true;
 }
 
 bool WmfMediaEngine::Close()
