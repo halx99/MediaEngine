@@ -2,7 +2,10 @@
 
 A cross paltform media engine for video render based on native sdk
 
-usage: refer to: https://github.com/axmolengine/axmol/blob/media-engine/core/ui/UIVideoPlayer.cpp
+usage: 
+
+- https://github.com/axmolengine/axmol/blob/media-engine/core/ui/UIVideoPlayer.cpp
+- https://github.com/halx99/bgfx-axplay/tree/axplay/axplay
 
 step: 
 
