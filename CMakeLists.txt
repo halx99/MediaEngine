@@ -9,7 +9,7 @@ option(AXME_BUILD_EXAMPLES "Build the AXME example programs" ${AXME_STANDALONE})
 
 # cxx standard
 if (NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD 20)
 endif()
 
 # the axme lib
