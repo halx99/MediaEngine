@@ -1,8 +1,6 @@
-cmake_minimum_required(VERSION 3.4...3.20 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.20)
 
-set(LIBNAME axme)
-
-project(${LIBNAME})
+project(axplay)
 
 # global settings
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -30,6 +28,7 @@ if(APPLE)
         )
 endif()
 
+set(LIBNAME axme)
 add_library(${LIBNAME} STATIC ${AXME_SRC} yasio/yasio.natvis)
 target_compile_definitions(${LIBNAME} PUBLIC AXME_NO_AXMOL=1)
 # target_compile_definitions(${LIBNAME} PUBLIC AXME_USE_IMFME=1)
@@ -50,6 +49,43 @@ if (AXME_BUILD_EXAMPLES)
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
     add_subdirectory(glfw)
-    add_executable(meplay main.cpp)
-    target_link_libraries(meplay glfw glad ${LIBNAME})
+
+    # axplay
+    set(target_name axplay)
+    file(GLOB_RECURSE leanopengl_src ${CMAKE_CURRENT_LIST_DIR}/learnopengl/*.h)
+    message(STATUS "leanopengl_src=${leanopengl_src}")
+    add_executable(${target_name} main.cpp ${leanopengl_src})
+    target_link_libraries(${target_name} glfw glad ${LIBNAME})
+    set_target_properties(${target_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+    configure_file(root_directory.h.in ${CMAKE_BINARY_DIR}/root_directory.h)
+    target_include_directories(${target_name} PRIVATE ${CMAKE_BINARY_DIR})
+
+    # copy shader files to build directory
+    file(GLOB_RECURSE SHADERS
+        "${CMAKE_CURRENT_LIST_DIR}/Content/*.vert"
+        "${CMAKE_CURRENT_LIST_DIR}/Content/*.frag"
+    )
+    target_sources(${target_name} PRIVATE ${SHADERS})
+
+	# copy dlls
+	# file(GLOB DLLS "dlls/*.dll")
+    foreach(SHADER ${SHADERS})
+        if(WIN32)
+            # configure_file(${SHADER} "test")
+            add_custom_command(TARGET ${target_name} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${SHADER} ${CMAKE_BINARY_DIR})
+            # add_custom_command(TARGET ${target_name} PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${SHADER} $<TARGET_FILE_DIR:${target_name}>)
+			# add_custom_command(TARGET ${target_name} PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${DLLS} $<TARGET_FILE_DIR:${target_name}>)
+        elseif(UNIX AND NOT APPLE)
+            file(COPY ${SHADER} DESTINATION ${CMAKE_SOURCE_DIR}/bin/${target_name})
+        elseif(APPLE)
+            # create symbolic link for *.vs *.fs *.gs
+            get_filename_component(SHADERNAME ${SHADER} NAME)
+            makeLink(${SHADER} ${CMAKE_SOURCE_DIR}/bin/${SHADERNAME} ${NAME})
+        endif(WIN32)
+    endforeach(SHADER)
+
+    if(WIN32)
+        set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT "${target_name}")
+    endif()
 endif()
