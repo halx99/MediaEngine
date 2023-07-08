@@ -1,4 +1,4 @@
-# Axme - The Axmol Media Engine
+# axplay - The simple media player based on Axmol Media Engine
 
 A cross paltform media engine for video render based on native sdk
 
