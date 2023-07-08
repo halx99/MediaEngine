@@ -182,7 +182,7 @@ public:
     void HandleVideoSample(const uint8_t* buf, size_t len);
     //bool GetLastVideoSample(MEVideoTextueSample& sample) const override;
 
-    bool transferVideoFrame() override;
+    bool renderVideoFrame() override;
 
 protected:
     HRESULT SetPositionInternal(const MFTIME& hnsPosition);

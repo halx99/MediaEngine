@@ -36,7 +36,7 @@ public:
     bool stop() override;
     bool isPlaybackEnded() const override { return _playbackEnded; }
     MEMediaState getState() const override;
-    bool transferVideoFrame() override;
+    bool renderVideoFrame() override;
 
     void handleEvent(MEMediaEventType event);
 

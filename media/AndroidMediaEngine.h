@@ -33,7 +33,7 @@ public:
     bool stop() override;
     bool isPlaybackEnded() const override;
     MEMediaState getState() const override;
-    bool transferVideoFrame() override;
+    bool renderVideoFrame() override;
 
     void handleVideoSample(const uint8_t* buf, size_t len, int outputX, int outputY, int videoX, int videoY);
 

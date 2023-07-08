@@ -99,7 +99,7 @@ MEMediaState AndroidMediaEngine::getState() const
     return context ? (MEMediaState)JniHelper::callIntMethod(className, "getState", context) : MEMediaState::Closed;
 }
 
-bool AndroidMediaEngine::transferVideoFrame()
+bool AndroidMediaEngine::renderVideoFrame()
 {
     if (context)
     {

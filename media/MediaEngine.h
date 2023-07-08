@@ -203,7 +203,7 @@ public:
     virtual bool stop()                                                              = 0;
     virtual bool isPlaybackEnded() const                                             = 0;
     virtual MEMediaState getState() const                                            = 0;
-    virtual bool transferVideoFrame()                                                = 0;
+    virtual bool renderVideoFrame()                                                  = 0;
 };
 
 class MediaEngineFactory

@@ -407,7 +407,7 @@ MEMediaState VlcMediaEngine::getState() const
     return _state;
 }
 
-bool VlcMediaEngine::transferVideoFrame()
+bool VlcMediaEngine::renderVideoFrame()
 {
     if (_frameBuffer1.empty())
         return false;

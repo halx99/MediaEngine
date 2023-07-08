@@ -333,7 +333,7 @@ void AvfMediaEngine::onStatusNotification(void* context)
         this->play();
 }
 
-bool AvfMediaEngine::transferVideoFrame()
+bool AvfMediaEngine::renderVideoFrame()
 {
     auto videoOutput = static_cast<AVPlayerItemVideoOutput*>(this->_playerOutput);
     if (!videoOutput)

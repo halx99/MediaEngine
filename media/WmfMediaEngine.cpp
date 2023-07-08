@@ -507,7 +507,7 @@ void WmfMediaEngine::ClearPendingBuffers()
     m_frameBuffer2.clear();
 }
 
-bool WmfMediaEngine::transferVideoFrame()
+bool WmfMediaEngine::renderVideoFrame()
 {
     if (m_state != MEMediaState::Playing || m_frameBuffer1.empty())
         return false;

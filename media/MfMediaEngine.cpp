@@ -227,7 +227,7 @@ bool MfMediaEngine::setCurrentTime(double fPosInSeconds)
     return false;
 }
 
-bool MfMediaEngine::transferVideoFrame()
+bool MfMediaEngine::renderVideoFrame()
 {
     if (m_mediaEngine != nullptr && m_state == MEMediaState::Playing)
     {

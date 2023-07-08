@@ -288,7 +288,7 @@ int main()
         // bind Texture
         // glBindTexture(GL_TEXTURE_2D, texture);
 
-        if (!mEngine->transferVideoFrame())
+        if (!mEngine->renderVideoFrame())
         { // render default
             ourShader.use();
         }

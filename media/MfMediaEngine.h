@@ -81,7 +81,7 @@ public:
     bool setLoop(bool bLoop) override;
     bool setRate(double fRate) override;
 
-    bool transferVideoFrame() override;
+    bool renderVideoFrame() override;
 
     bool play() override;
     bool pause() override;
