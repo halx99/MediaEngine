@@ -66,8 +66,16 @@ if (AXME_BUILD_EXAMPLES)
         "${CMAKE_CURRENT_LIST_DIR}/Content/*.vert"
         "${CMAKE_CURRENT_LIST_DIR}/Content/*.frag"
     )
-    target_sources(${target_name} PRIVATE ${SHADERS})
 
+    if(AXPLAY_ENABLE_SPIRV_LINT)
+       # enable glslcc for check shader spirv compatible
+       set(GLSLCC_FIND_PROG_ROOT "${CMAKE_CURRENT_LIST_DIR}/tools/external/glslcc")
+       include(cmake/AXGLSLCC.cmake)
+       ax_target_compile_shaders(${target_name} FILES ${SHADERS})
+    else()
+       target_sources(${target_name} PRIVATE ${SHADERS})
+    endif()
+    
 	# copy dlls
 	# file(GLOB DLLS "dlls/*.dll")
     foreach(SHADER ${SHADERS})

@@ -1,4 +1,4 @@
-// #1
+// #3
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 // #include <stb_image.h>
@@ -10,6 +10,10 @@
 #include <format>
 
 #include "media/MediaEngine.h"
+
+/*
+* --silent --err-format=msvc --lang=glsl --profile=330 --include-dirs=/home/vmroot/dev/axmol/core/renderer/shaders --flatten-ubos --frag=/home/vmroot/dev/axmol/core/renderer/shaders/colorNormalTexture.frag --output=/home/vmroot/dev/axmol/build/runtime/axslc/colorNormalTexture
+*/
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
@@ -236,7 +240,8 @@ int main()
                      GL_UNSIGNED_BYTE, frame._dataPointer);
         CHECK_GL_ERROR_ABORT();
         // Set our "lumaTexture" sampler to use Texture Unit 0
-        ourShader.setInt("lumaTexture", 0);
+        // If in shader has layout(binding = 0), this don't required
+        //ourShader.setInt("lumaTexture", 0);
         CHECK_GL_ERROR_ABORT();
 
         /* ------------ ChromaTexture aka UV ------------- */
@@ -247,7 +252,8 @@ int main()
                      frame._dataPointer);
         CHECK_GL_ERROR_ABORT();
         // Set our "chromaTexture" sampler to use Texture Unit 1
-        ourShader.setInt("chromaTexture", 1);
+        // If in shader has layout(binding = 0), this don't required
+        //ourShader.setInt("chromaTexture", 1);
         CHECK_GL_ERROR_ABORT();
 
         //
@@ -263,7 +269,6 @@ int main()
             {
                 // auto ps = pvd->_vrender->getProgramState();
                 // PrivateVideoDescriptor::updateColorTransform(ps, frame._vpd._fullRange);
-                // ps->setTexture(ps->getUniformLocation("u_tex1"), 1, pvd->_vchromaTexture->getBackendTexture());
                 ourShader.setMat4("colorTransform", colorTransform);
                 CHECK_GL_ERROR_ABORT();
             }

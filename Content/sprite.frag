@@ -1,11 +1,11 @@
-#version 330 core
-out vec4 FragColor;
+#version 450
+layout(location = 0) out vec4 FragColor;
 
-in vec3 ourColor;
-in vec2 TexCoord;
+layout(location = 0) in vec3 ourColor;
+layout(location = 1) in vec2 TexCoord;
 
 // texture sampler
-uniform sampler2D texture1;
+layout(binding = 0) uniform sampler2D texture1;
 
 void main()
 {
