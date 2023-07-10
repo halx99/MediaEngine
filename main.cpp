@@ -196,6 +196,14 @@ int main()
 		    0.0627451f, 0.5019608f,       0.50196081f,      0.0f
         };
 
+    // allocate ubo to store colorTransform
+    GLuint ubo = 0;
+    glGenBuffers(1, &ubo); // gen ubo
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo); // bind ubo
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(colorTransform), &colorTransform, GL_STATIC_DRAW); // update ubo data
+    glBindBuffer(GL_UNIFORM_BUFFER, 0); // unbind
+
+
     auto videoUri = FileSystem::getPath("Content/video/h264/1280x720.mp4");
     videoUri.insert(0, "file:///");
 
@@ -269,7 +277,13 @@ int main()
             {
                 // auto ps = pvd->_vrender->getProgramState();
                 // PrivateVideoDescriptor::updateColorTransform(ps, frame._vpd._fullRange);
-                ourShader.setMat4("colorTransform", colorTransform);
+                // ourShader.setMat4("colorTransform", colorTransform);
+
+                //unsigned int lights_index = glGetUniformBlockIndex(shaderA.ID, "Lights");
+                //glUniformBlockBinding(shaderA.ID, lights_index, 2);
+                // instead: layout(std140, binding = 0) uniform UBO
+                glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+                
                 CHECK_GL_ERROR_ABORT();
             }
 
@@ -310,6 +324,10 @@ int main()
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    glDeleteBuffers(1, &ubo);
+    glDeleteTextures(1, &ySample);
+    glDeleteTextures(1, &uvSample);
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
