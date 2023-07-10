@@ -7,7 +7,7 @@ layout(location = 1) in vec2 TexCoord;
 layout(binding = 0) uniform sampler2D lumaTexture; // Y sample
 layout(binding = 1) uniform sampler2D chromaTexture; // UV sample
 
-# 'non-opaque uniforms outside a block' : not allowed when using GLSL for Vulkan
+// 'non-opaque uniforms outside a block' : not allowed when using GLSL for Vulkan
 uniform mat4 colorTransform;
 
 vec3 trasnformYUV(vec3 YUV)
