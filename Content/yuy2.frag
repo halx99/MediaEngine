@@ -1,14 +1,13 @@
 #version 450
 layout(location = 0) out vec4 FragColor;
 
-layout(location = 0) in vec3 ourColor;
-layout(location = 1) in vec2 TexCoord;
+layout(location = 0) in vec2 TexCoord;
 
 layout(binding = 0) uniform sampler2D lumaTexture; // Y sample
 layout(binding = 1) uniform sampler2D chromaTexture; // UV sample
 
 // 'non-opaque uniforms outside a block' : not allowed when using GLSL for Vulkan
-layout(std140, binding = 0) uniform UBO {
+layout(std140, binding = 0) uniform fs_ub {
     mat4 colorTransform;
 };
 

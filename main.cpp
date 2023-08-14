@@ -116,11 +116,11 @@ int main()
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
     float vertices[] = {
-        // positions          // colors           // texture coords
-        0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  // top right
-        0.5f,  -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,  // bottom right
-        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,  // bottom left
-        -0.5f, 0.5f,  0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f   // top left
+        // positions        // texture coords
+        0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // top right
+        0.5f,  -0.5f,0.0f, 1.0f, 0.0f,  // bottom right
+        -0.5f, -0.5f,0.0f, 0.0f, 0.0f,  // bottom left
+        -0.5f, 0.5f, 0.0f, 0.0f, 1.0f   // top left
     };
     unsigned int indices[] = {
         0, 1, 3,  // first triangle
@@ -140,14 +140,11 @@ int main()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
     // texture coord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
     // load and create a texture
     // -------------------------
@@ -200,9 +197,11 @@ int main()
     GLuint ubo = 0;
     glGenBuffers(1, &ubo); // gen ubo
     glBindBuffer(GL_UNIFORM_BUFFER, ubo); // bind ubo
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(colorTransform), &colorTransform, GL_STATIC_DRAW); // update ubo data
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(colorTransform), NULL, GL_STATIC_DRAW); // update ubo data
+    auto pbuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+    memcpy(pbuf, &colorTransform, sizeof(colorTransform));
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBuffer(GL_UNIFORM_BUFFER, 0); // unbind
-
 
     auto videoUri = FileSystem::getPath("Content/video/h264/1280x720.mp4");
     videoUri.insert(0, "file:///");
