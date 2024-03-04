@@ -9,6 +9,9 @@
 #include <iostream>
 #include <format>
 
+#define AX_GLES_PROFILE 300
+#define AX_GLES_PROFILE_DEN 100
+
 #include "media/MediaEngine.h"
 
 /*
@@ -40,8 +43,11 @@ void processInput(GLFWwindow* window);
 
 
 // settings
-const unsigned int SCR_WIDTH  = 1920;
-const unsigned int SCR_HEIGHT = 1080;
+const unsigned int SCR_WIDTH  = 1024;
+const unsigned int SCR_HEIGHT = 768;
+
+float designWidth = 1988;
+float desighHeight = 1200;
 
 static void recreate_texture(GLuint& texture, GLint samplerFilter = GL_LINEAR, GLint wrap = GL_CLAMP_TO_EDGE)
 {
@@ -68,9 +74,16 @@ int main()
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+#if AX_GLES_PROFILE
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+    glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, AX_GLES_PROFILE / AX_GLES_PROFILE_DEN);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+#elif defined(AX_USE_GL)
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);  // We want OpenGL 3.3
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // We don't want the old OpenGL
+#endif
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -88,6 +101,7 @@ int main()
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+
     // glad: load all OpenGL function pointers
     // ---------------------------------------
     // if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -95,7 +109,7 @@ int main()
     //    std::cout << "Failed to initialize GLAD" << std::endl;
     //    return -1;
     //}
-#if !defined(AX_USE_GLES)
+#if !defined(AX_GLES_PROFILE)
     if (!gladLoadGL(glfwGetProcAddress))
     {
         printf("glad: Failed to Load GL");
@@ -109,9 +123,19 @@ int main()
     }
 #endif
 
+    auto vendor   = (char const*)glGetString(GL_VENDOR);
+    auto renderer = (char const*)glGetString(GL_RENDERER);
+    auto version  = (char const*)glGetString(GL_VERSION);
+
+    printf("###########################\nDriver info:\nvender:%s\nrenderer:%s\nversion:%s\n###########################\n\n", vendor, renderer, version);
+
+    framebuffer_size_callback(window, 1024, 768);
+
     // build and compile our shader zprogram
     // ------------------------------------
-    Shader ourShader("sprite.vert", "yuy2.frag");
+    auto vertSourcePath = FileSystem::getPath("Content/sprite.vert");
+    auto fragSourcePath = FileSystem::getPath("Content/yuy2.frag");
+    Shader ourShader(vertSourcePath.c_str(), fragSourcePath.c_str());
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -146,38 +170,7 @@ int main()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    // load and create a texture
-    // -------------------------
-#if 0
-    unsigned int texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D,
-                  texture);  // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-    // set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                    GL_REPEAT);  // set texture wrapping to GL_REPEAT (default wrapping method)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    // load image, create texture and generate mipmaps
-    int width, height, nrChannels;
-    // The FileSystem::getPath(...) is part of the GitHub repository so we can find files on any IDE/platform; replace it with your own image path.
-    unsigned char *data = stbi_load(FileSystem::getPath("resources/textures/container.jpg").c_str(), &width, &height, &nrChannels, 0);
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else
-    {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    stbi_image_free(data);
-#else
     MEVideoPixelDesc vpd;
-#endif
 
     // TODO: update textureRect by vertex data
     bool bFullColorRange = true;
@@ -198,7 +191,7 @@ int main()
     glGenBuffers(1, &ubo); // gen ubo
     glBindBuffer(GL_UNIFORM_BUFFER, ubo); // bind ubo
     glBufferData(GL_UNIFORM_BUFFER, sizeof(colorTransform), NULL, GL_STATIC_DRAW); // update ubo data
-    auto pbuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+    auto pbuf = glMapBufferOES(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
     memcpy(pbuf, &colorTransform, sizeof(colorTransform));
     glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBuffer(GL_UNIFORM_BUFFER, 0); // unbind
@@ -215,14 +208,14 @@ int main()
                           [&](const MEVideoFrame& frame) {
         ourShader.use();
 
-        CHECK_GL_ERROR_ABORT();
+        CHECK_GL_ERROR_DEBUG();
 
         bool bPixelDescChnaged = !vpd.equals(frame._vpd);
         if (bPixelDescChnaged)
         {  // recreate texture
             recreate_texture(ySample);
             recreate_texture(uvSample);
-            CHECK_GL_ERROR_ABORT();
+            CHECK_GL_ERROR_DEBUG();
         }
         vpd = frame._vpd;
 
@@ -294,6 +287,8 @@ int main()
     // -----------
     while (!glfwWindowShouldClose(window))
     {
+        framebuffer_size_callback(window, 1024, 768);
+
         // input
         // -----
         processInput(window);
@@ -354,5 +349,5 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
-    glViewport(0, 0, width, height);
+    glViewport(-121, 0, 1267, height);
 }

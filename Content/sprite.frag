@@ -1,10 +1,13 @@
-#version 450
+#version 300 es
+precision mediump float;
+precision highp int;
+
 layout(location = 0) out vec4 FragColor;
 
-layout(location = 0) in vec2 TexCoord;
+in vec2 TexCoord;
 
 // texture sampler
-layout(binding = 0) uniform sampler2D texture1;
+uniform sampler2D texture1;
 
 void main()
 {

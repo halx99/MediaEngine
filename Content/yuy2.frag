@@ -1,13 +1,16 @@
-#version 450
+#version 300 es
+precision mediump float;
+precision highp int;
+
 layout(location = 0) out vec4 FragColor;
 
-layout(location = 0) in vec2 TexCoord;
+in vec2 TexCoord;
 
-layout(binding = 0) uniform sampler2D lumaTexture; // Y sample
-layout(binding = 1) uniform sampler2D chromaTexture; // UV sample
+uniform sampler2D lumaTexture; // Y sample
+uniform sampler2D chromaTexture; // UV sample
 
 // 'non-opaque uniforms outside a block' : not allowed when using GLSL for Vulkan
-layout(std140, binding = 0) uniform fs_ub {
+layout(std140) uniform fs_ub {
     mat4 colorTransform;
 };
 
