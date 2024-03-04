@@ -270,6 +270,19 @@ int main()
     glBlendFuncSeparate(1, 771, 1, 771);
     glColorMask(1, 1, 1, 1);
 
+#if 1
+    /* !!!!!!enable stencil test will cause intel UHD 630 Graphics d3d11 driver viewport bug.
+     when viewport x or y < 0, that's why modern grapics libraries doesn't allow set negative viewport
+     i.e
+       - dawn: google wgpu implementation 
+       - bgfx
+     */
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_ALWAYS, 0, 0);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(0);
+#endif
+
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
