@@ -14,39 +14,45 @@
 
 #include "media/MediaEngine.h"
 
+#include "glm/glm.hpp"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 /*
-* --silent --err-format=msvc --lang=glsl --profile=330 --include-dirs=/home/vmroot/dev/axmol/core/renderer/shaders --flatten-ubos --frag=/home/vmroot/dev/axmol/core/renderer/shaders/colorNormalTexture.frag --output=/home/vmroot/dev/axmol/build/runtime/axslc/colorNormalTexture
-*/
+ * --silent --err-format=msvc --lang=glsl --profile=330 --include-dirs=/home/vmroot/dev/axmol/core/renderer/shaders
+ * --flatten-ubos --frag=/home/vmroot/dev/axmol/core/renderer/shaders/colorNormalTexture.frag
+ * --output=/home/vmroot/dev/axmol/build/runtime/axslc/colorNormalTexture
+ */
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
-#define CHECK_GL_ERROR_DEBUG()                                                                       \
-    do                                                                                               \
-    {                                                                                                \
-        GLenum __error = glGetError();                                                               \
-        if (__error)                                                                                 \
-        {                                                                                            \
+#define CHECK_GL_ERROR_DEBUG()                                                                      \
+    do                                                                                              \
+    {                                                                                               \
+        GLenum __error = glGetError();                                                              \
+        if (__error)                                                                                \
+        {                                                                                           \
             printf("OpenGL error 0x%04X in %s %s %d\n", __error, __FILE__, __FUNCTION__, __LINE__); \
-        }                                                                                            \
+        }                                                                                           \
     } while (false)
-#define CHECK_GL_ERROR_ABORT()                                                                       \
-    do                                                                                               \
-    {                                                                                                \
-        GLenum __error = glGetError();                                                               \
-        if (__error)                                                                                 \
-        {                                                                                            \
+#define CHECK_GL_ERROR_ABORT()                                                                      \
+    do                                                                                              \
+    {                                                                                               \
+        GLenum __error = glGetError();                                                              \
+        if (__error)                                                                                \
+        {                                                                                           \
             printf("OpenGL error 0x%04X in %s %s %d\n", __error, __FILE__, __FUNCTION__, __LINE__); \
-            assert(false);                                                                           \
-        }                                                                                            \
+            assert(false);                                                                          \
+        }                                                                                           \
     } while (false)
-
 
 // settings
 const unsigned int SCR_WIDTH  = 1024;
 const unsigned int SCR_HEIGHT = 768;
 
-float designWidth = 1988;
+float designWidth  = 1988;
 float desighHeight = 1200;
 
 static void recreate_texture(GLuint& texture, GLint samplerFilter = GL_LINEAR, GLint wrap = GL_CLAMP_TO_EDGE)
@@ -64,6 +70,39 @@ static void recreate_texture(GLuint& texture, GLint samplerFilter = GL_LINEAR, G
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samplerFilter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, samplerFilter);
 }
+
+struct V3F_C4B_T2F
+{
+    /// vertices (3F)
+    glm::vec3 vertices;  // 12 bytes
+
+    /// colors (4B)
+    unsigned char colors[4];  // 4 bytes
+
+    // tex coords (2F)
+    glm::vec2 texCoords;  // 8 bytes
+};
+
+/** @struct GLContextAttrs
+ *
+ * There are six opengl Context Attrs.
+ */
+struct GLContextAttrs
+{
+    int redBits;
+    int greenBits;
+    int blueBits;
+    int alphaBits;
+    int depthBits;
+    int stencilBits;
+    int multisamplingCount;
+    bool visible   = true;
+    bool decorated = true;
+    bool vsync     = false;
+#if defined(_WIN32)
+    void* viewParent = nullptr;
+#endif
+};
 
 int main()
 {
@@ -89,9 +128,25 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
+    bool resizable                 = false;
+    GLContextAttrs _glContextAttrs = {8, 8, 8, 8, 24, 8, 0};
+
+    glfwWindowHint(GLFW_RESIZABLE, resizable ? GL_TRUE : GL_FALSE);
+    glfwWindowHint(GLFW_RED_BITS, _glContextAttrs.redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, _glContextAttrs.greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, _glContextAttrs.blueBits);
+    glfwWindowHint(GLFW_ALPHA_BITS, _glContextAttrs.alphaBits);
+    glfwWindowHint(GLFW_DEPTH_BITS, _glContextAttrs.depthBits);
+    glfwWindowHint(GLFW_STENCIL_BITS, _glContextAttrs.stencilBits);
+
+    glfwWindowHint(GLFW_SAMPLES, _glContextAttrs.multisamplingCount);
+
+    glfwWindowHint(GLFW_VISIBLE, _glContextAttrs.visible);
+    glfwWindowHint(GLFW_DECORATED, _glContextAttrs.decorated);
+
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "axplay", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "HelloCpp-Emulator", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -100,7 +155,6 @@ int main()
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -127,28 +181,41 @@ int main()
     auto renderer = (char const*)glGetString(GL_RENDERER);
     auto version  = (char const*)glGetString(GL_VERSION);
 
-    printf("###########################\nDriver info:\nvender:%s\nrenderer:%s\nversion:%s\n###########################\n\n", vendor, renderer, version);
+    printf(
+        "###########################\nDriver "
+        "info:\nvender:%s\nrenderer:%s\nversion:%s\n###########################\n\n",
+        vendor, renderer, version);
 
     framebuffer_size_callback(window, 1024, 768);
 
     // build and compile our shader zprogram
     // ------------------------------------
-    auto vertSourcePath = FileSystem::getPath("Content/sprite.vert");
-    auto fragSourcePath = FileSystem::getPath("Content/yuy2.frag");
-    Shader ourShader(vertSourcePath.c_str(), fragSourcePath.c_str());
+    auto vertSourcePath       = FileSystem::getPath("Content/sprite.vert");
+    auto spriteFragSourcePath = FileSystem::getPath("Content/sprite.frag");
+    Shader ourShader(vertSourcePath.c_str(), spriteFragSourcePath.c_str());
 
-    // set up vertex data (and buffer(s)) and configure vertex attributes
+    float floatStride = sizeof(V3F_C4B_T2F) / 4;
+
     // ------------------------------------------------------------------
+
+#if 1
+    V3F_C4B_T2F vertices[] = {{glm::vec3{862.0f, 728.0f, 0.0f}, {255, 255, 255, 255}, {0.0f, 0.0f}},
+                              {glm::vec3{862.0f, 472.0f, 0.0f}, {255, 255, 255, 255}, {0.0f, 1.0f}},
+                              {glm::vec3{1118.0f, 728.0f, 0.0f}, {255, 255, 255, 255}, {1.0f, 0.0f}},
+                              {glm::vec3{1118.0f, 472.0f, 0.0f}, {255, 255, 255, 255}, {1.0f, 1.0f}}};
+
+#else
     float vertices[] = {
-        // positions        // texture coords
-        0.5f,  0.5f, 0.0f, 1.0f, 1.0f,  // top right
-        0.5f,  -0.5f,0.0f, 1.0f, 0.0f,  // bottom right
-        -0.5f, -0.5f,0.0f, 0.0f, 0.0f,  // bottom left
-        -0.5f, 0.5f, 0.0f, 0.0f, 1.0f   // top left
+        // positions          // colors           // texture coords
+        862.0f,  728.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,  // left bottom
+        862.0f,  472.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f,  // bottom right
+        1118.0f, 728.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,  // bottom top
+        1118.0f, 472.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f   // top left
     };
-    unsigned int indices[] = {
-        0, 1, 3,  // first triangle
-        1, 2, 3   // second triangle
+#endif
+    unsigned short indices[] = {
+        0, 1, 2,  // first triangle
+        3, 2, 1   // second triangle
     };
     unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
@@ -158,170 +225,102 @@ int main()
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // texture coord attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
 
-    MEVideoPixelDesc vpd;
+    // load and create a texture
+    // -------------------------
+    GLuint texture1{0};
+    int width, height, nrChannels;
+    recreate_texture(texture1);
+    // load image, create texture and generate mipmaps
+    // stbi_set_flip_vertically_on_load(true);  // tell stb_image.h to flip loaded texture's on the y-axis.
+    auto data = stbi_load(FileSystem::getPath("Content/logo.png").c_str(), &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        // note that the awesomeface.png has transparency and thus an alpha channel, so make sure to tell OpenGL the
+        // data type is of GL_RGBA
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        // glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
 
-    // TODO: update textureRect by vertex data
-    bool bFullColorRange = true;
-    const Mat4 colorTransform = bFullColorRange ? Mat4{ // 709Scaled
-            1.16438356f,   0.00000000f,    1.79265225f,     0.0f,
-            1.16438356f,  -0.213237017f, - 0.533004045f,    0.0f,
-            1.16438356f,   2.11241937f,    0.00000000f,     0.0f,
-            0.0627451017f, 0.501960814f,   0.501960814f,    0.0f // YUVOffset8Bits: 16/255.0f, 128/255.0f, 128/255.0f
-        } : Mat4 { // 709Unscaled
-            1.000000f,  0.0000000f,       1.57472198f,      0.0f,
-		    1.000000f, -0.187314089f,     -0.46820747f,     0.0f,
-		    1.000000f,  1.85561536f,      0.0000000f,       0.0f,
-		    0.0627451f, 0.5019608f,       0.50196081f,      0.0f
-        };
+    // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
+    // -------------------------------------------------------------------------------------------
+    ourShader.use();  // don't forget to activate/use the shader before setting uniforms!
+    // either set it manually like so:
+    //
+    auto texLoc = glGetUniformLocation(ourShader.ID, "texture1");
+    // glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), 0);
+    // or set it via the texture class
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    // ourShader.setInt("texture1", 0);
 
-    // allocate ubo to store colorTransform
-    GLuint ubo = 0;
-    glGenBuffers(1, &ubo); // gen ubo
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo); // bind ubo
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(colorTransform), NULL, GL_STATIC_DRAW); // update ubo data
-    auto pbuf = glMapBufferOES(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-    memcpy(pbuf, &colorTransform, sizeof(colorTransform));
-    glUnmapBuffer(GL_UNIFORM_BUFFER);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0); // unbind
-
-    auto videoUri = FileSystem::getPath("Content/video/h264/1280x720.mp4");
-    videoUri.insert(0, "file:///");
-
-    mEngine->setAutoPlay(true);
-    mEngine->open(videoUri);
-    mEngine->setLoop(true);
-
-    GLuint ySample = 0, uvSample = 0;
-    mEngine->setCallbacks([](MEMediaEventType event) { printf("Media Event: %d\n", (int)event); },
-                          [&](const MEVideoFrame& frame) {
-        ourShader.use();
-
-        CHECK_GL_ERROR_DEBUG();
-
-        bool bPixelDescChnaged = !vpd.equals(frame._vpd);
-        if (bPixelDescChnaged)
-        {  // recreate texture
-            recreate_texture(ySample);
-            recreate_texture(uvSample);
-            CHECK_GL_ERROR_DEBUG();
-        }
-        vpd = frame._vpd;
-
-        // upload texture
-        assert(vpd._PF == MEVideoPixelFormat::YUY2);  // Now only render YUY2
-
-        auto pixelFormat = vpd._PF;
-
-        // (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum
-        // format, GLenum type, const void * pixels);
-        auto& bufferDim = frame._vpd._dim;
-
-
-        /* ------------ LumaTexture aka Y ------------- */
-        // Bind our texture in Texture Unit 0 for LumaTexture
-        glActiveTexture(GL_TEXTURE0);
-        CHECK_GL_ERROR_ABORT();
-        glBindTexture(GL_TEXTURE_2D, ySample);
-        CHECK_GL_ERROR_ABORT();
-        // OpenGL 330 core profile doesn't support LA8, support RG8
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8, bufferDim.x, bufferDim.y, 0, GL_RG,
-                     GL_UNSIGNED_BYTE, frame._dataPointer);
-        CHECK_GL_ERROR_ABORT();
-        // Set our "lumaTexture" sampler to use Texture Unit 0
-        // If in shader has layout(binding = 0), this don't required
-        //ourShader.setInt("lumaTexture", 0);
-        CHECK_GL_ERROR_ABORT();
-
-        /* ------------ ChromaTexture aka UV ------------- */
-        // Bind our texture in Texture Unit 1 ChromaTexture
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, uvSample);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bufferDim.x >> 1, bufferDim.y, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                     frame._dataPointer);
-        CHECK_GL_ERROR_ABORT();
-        // Set our "chromaTexture" sampler to use Texture Unit 1
-        // If in shader has layout(binding = 0), this don't required
-        //ourShader.setInt("chromaTexture", 1);
-        CHECK_GL_ERROR_ABORT();
-
-        //
-        if (bPixelDescChnaged)
-        {
-            // pvd->_vrender->setTexture(pvd->_vtexture);
-            // pvd->_vrender->setTextureRect(ax::Rect{Vec2::ZERO, Vec2{
-            //                                                        frame._videoDim.x / AX_CONTENT_SCALE_FACTOR(),
-            //                                                        frame._videoDim.y / AX_CONTENT_SCALE_FACTOR(),
-            //                                                    }});
-
-            if (pixelFormat >= MEVideoPixelFormat::YUY2)
-            {
-                // auto ps = pvd->_vrender->getProgramState();
-                // PrivateVideoDescriptor::updateColorTransform(ps, frame._vpd._fullRange);
-                // ourShader.setMat4("colorTransform", colorTransform);
-
-                //unsigned int lights_index = glGetUniformBlockIndex(shaderA.ID, "Lights");
-                //glUniformBlockBinding(shaderA.ID, lights_index, 2);
-                // instead: layout(std140, binding = 0) uniform UBO
-                glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
-                
-                CHECK_GL_ERROR_ABORT();
-            }
-
-            // pvd->_scaleDirty = true;
-        }
-    });
+    // enable alphablend
+    glEnable(GL_BLEND);
+    glBlendEquationSeparate(32774, 32774);
+    glBlendFuncSeparate(1, 771, 1, 771);
+    glColorMask(1, 1, 1, 1);
 
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
     {
-        framebuffer_size_callback(window, 1024, 768);
-
         // input
         // -----
         processInput(window);
 
         // render
         // ------
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClearDepthf(1.00f);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_ALWAYS);
+        glClearStencil(0);
 
-        // bind Texture
-        // glBindTexture(GL_TEXTURE_2D, texture);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-        if (!mEngine->renderVideoFrame())
-        { // render default
-            ourShader.use();
-        }
-        // ... render video sample by OpenGL, DirectX, vulkan, Metal
+        // glClear(GL_COLOR_BUFFER_BIT);
+
+        glDisable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        glClearDepthf(1.00f);
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_DYNAMIC_DRAW);
+
+        // color attribute
+        glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, floatStride * sizeof(float), (void*)(3 * sizeof(float)));
+
+        // position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, floatStride * sizeof(float), (void*)0);
+
+        // texture coord attribute
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, floatStride * sizeof(float), (void*)(4 * sizeof(float)));
+
+        // bind textures on corresponding texture units
+        // glActiveTexture(GL_TEXTURE1);
+        // glBindTexture(GL_TEXTURE_2D, texture2);
 
         // render container
-        //ourShader.use();
-
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        // ourShader.use();
+        // glBindVertexArray(VAO);
+        glUniform1i(texLoc, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
-    glDeleteBuffers(1, &ubo);
-    glDeleteTextures(1, &ySample);
-    glDeleteTextures(1, &uvSample);
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
@@ -349,5 +348,5 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
-    glViewport(-121, 0, 1267, height);
+    glViewport(-121, 0, 1267 /*width*/, height);
 }
