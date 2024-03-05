@@ -28,8 +28,10 @@ if(APPLE)
         )
 endif()
 
+include_directories("${CMAKE_CURRENT_LIST_DIR}/3rdparty")
+
 set(LIBNAME axme)
-add_library(${LIBNAME} STATIC ${AXME_SRC} yasio/yasio.natvis)
+add_library(${LIBNAME} STATIC ${AXME_SRC} 3rdparty/yasio/yasio.natvis)
 target_compile_definitions(${LIBNAME} PUBLIC AXME_NO_AXMOL=1)
 # target_compile_definitions(${LIBNAME} PUBLIC AXME_USE_IMFME=1)
 target_include_directories(${LIBNAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
@@ -43,16 +45,16 @@ endif()
 # examples
 if (AXME_BUILD_EXAMPLES)
     # glad
-    add_subdirectory(glad)
+    add_subdirectory(3rdparty/glad)
 
     # glfw
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-    add_subdirectory(glfw)
+    add_subdirectory(3rdparty/glfw)
 
     # axplay
     set(target_name axplay)
-    file(GLOB_RECURSE leanopengl_src ${CMAKE_CURRENT_LIST_DIR}/learnopengl/*.h)
+    file(GLOB_RECURSE leanopengl_src ${CMAKE_CURRENT_LIST_DIR}/3rdparty/learnopengl/*.h)
     message(STATUS "leanopengl_src=${leanopengl_src}")
     add_executable(${target_name} main.cpp ${leanopengl_src})
     target_link_libraries(${target_name} glfw glad ${LIBNAME})
@@ -75,7 +77,7 @@ if (AXME_BUILD_EXAMPLES)
     else()
        target_sources(${target_name} PRIVATE ${SHADERS})
     endif()
-    
+
 	# copy dlls
 	# file(GLOB DLLS "dlls/*.dll")
     # foreach(SHADER ${SHADERS})
@@ -92,10 +94,18 @@ if (AXME_BUILD_EXAMPLES)
     #         makeLink(${SHADER} ${CMAKE_SOURCE_DIR}/bin/${SHADERNAME} ${NAME})
     #     endif(WIN32)
     # endforeach(SHADER)
-    add_custom_command(TARGET ${target_name} POST_BUILD COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_CURRENT_SOURCE_DIR}/Content" $<TARGET_FILE_DIR:${target_name}>/Content)
+    add_custom_command(TARGET ${target_name} POST_BUILD COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_CURRENT_LIST_DIR}/Content" $<TARGET_FILE_DIR:${target_name}>/Content)
     # execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_CURRENT_SOURCE_DIR}/Content" $<TARGET_FILE_DIR:${target_name}>/Content)
 
+    add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_LIST_DIR}/3rdparty/angle/libGLESv2.dll
+            ${CMAKE_CURRENT_LIST_DIR}/3rdparty/angle/libEGL.dll
+            ${CMAKE_CURRENT_LIST_DIR}/3rdparty/angle/d3dcompiler_47.dll
+            $<TARGET_FILE_DIR:${target_name}>
+        )
     if(WIN32)
         set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT "${target_name}")
     endif()
 endif()
+

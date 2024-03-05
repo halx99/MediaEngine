@@ -241,7 +241,7 @@ int main()
         CHECK_GL_ERROR_ABORT();
         // Set our "lumaTexture" sampler to use Texture Unit 0
         // If in shader has layout(binding = 0), this don't required
-        //ourShader.setInt("lumaTexture", 0);
+        ourShader.setInt("lumaTexture", 0);
         CHECK_GL_ERROR_ABORT();
 
         /* ------------ ChromaTexture aka UV ------------- */
@@ -253,7 +253,7 @@ int main()
         CHECK_GL_ERROR_ABORT();
         // Set our "chromaTexture" sampler to use Texture Unit 1
         // If in shader has layout(binding = 0), this don't required
-        //ourShader.setInt("chromaTexture", 1);
+        ourShader.setInt("chromaTexture", 1);
         CHECK_GL_ERROR_ABORT();
 
         //
@@ -287,8 +287,6 @@ int main()
     // -----------
     while (!glfwWindowShouldClose(window))
     {
-        framebuffer_size_callback(window, 1024, 768);
-
         // input
         // -----
         processInput(window);
@@ -349,5 +347,5 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
-    glViewport(-121, 0, 1267, height);
+    glViewport(0, 0, width, height);
 }
